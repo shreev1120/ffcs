@@ -35,6 +35,17 @@ const courseSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    category: {
+        type: String,
+        trim: true
+    },
+    registrationType: {
+        type: String,
+        trim: true
+    },
+    slNo: {
+        type: Number
+    },
     batchType: {
         type: String,
         enum: ['Morning', 'Evening', 'Both'],

@@ -4,17 +4,27 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const cookieParser = require('cookie-parser');
 
 // Import routes
 const timetableRoutes = require('./routes/timetable');
 const webhookRoutes = require('./routes/webhook');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ffcs-agent';
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: true,
+    credentials: true,
+    exposedHeaders: ['set-cookie']
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
 app.use(express.urlencoded({ extended: true }));
 
 // Create uploads directory if it doesn't exist
@@ -26,29 +36,11 @@ if (!fs.existsSync(uploadDir)) {
 // MongoDB Connection
 const connectDB = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        });
+        await mongoose.connect(MONGODB_URI);
         console.log('✅ MongoDB connected successfully');
-
-        // Seed default demo user for frontend
-        const User = require('./models/User');
-        const demoUserId = '65a0b1c2d3e4f5a6b7c8d9e0';
-        const demoUser = await User.findById(demoUserId);
-
-        if (!demoUser) {
-            await User.create({
-                _id: demoUserId,
-                vitEmail: 'demo.student@vitstudent.ac.in',
-                whatsappNumber: '1234567890',
-                name: 'Demo Student',
-                registrationNumber: '21BCE0000'
-            });
-            console.log('✨ Demo user created for frontend');
-        }
     } catch (error) {
         console.error('❌ MongoDB connection error:', error.message);
+        console.error(`ℹ️ Ensure local MongoDB is running (mongod) and reachable at ${MONGODB_URI}`);
         process.exit(1);
     }
 };
@@ -68,9 +60,11 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/webhook', webhookRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api', authRoutes);
 
 // Serve static files from the React app
-const clientBuildPath = path.join(__dirname, 'client', 'dist');
+const clientBuildPath = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(clientBuildPath)) {
     app.use(express.static(clientBuildPath));
 

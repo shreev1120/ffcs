@@ -23,6 +23,28 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    passwordHash: {
+        type: String,
+        trim: true
+    },
+    preferences: {
+        batchPreference: {
+            type: String,
+            enum: ['Morning', 'Evening'],
+            default: null
+        },
+        rankingCriteria: {
+            type: String,
+            enum: ['earliest_finish', 'no_morning', 'max_free_days', 'balanced'],
+            default: 'balanced'
+        },
+        maxTimetables: {
+            type: Number,
+            default: 12,
+            min: 1,
+            max: 100
+        }
+    },
     conversationState: {
         type: String,
         enum: ['IDLE', 'ASK_EMAIL', 'ASK_EXCEL', 'ASK_PREFERENCES', 'GENERATING', 'SUCCESS'],

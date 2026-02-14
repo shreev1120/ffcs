@@ -151,9 +151,17 @@ router.post('/generate', async (req, res) => {
         // Update preferences if provided
         if (preferences) {
             semesterConfig.preferences = { ...semesterConfig.preferences, ...preferences };
-            semesterConfig.status = 'processing';
-            await semesterConfig.save();
         }
+
+        if (!['Morning', 'Evening'].includes(semesterConfig.preferences.batchPreference)) {
+            return res.status(400).json({
+                error: 'Batch preference is required',
+                message: 'Please select either Morning or Evening slots before generation'
+            });
+        }
+
+        semesterConfig.status = 'processing';
+        await semesterConfig.save();
 
         // Generate timetables
         const timetableGenerator = require('../services/timetableGenerator');
@@ -166,19 +174,31 @@ router.post('/generate', async (req, res) => {
             slot: c.slot,
             faculty: c.faculty,
             venue: c.venue,
+            category: c.category,
+            registrationType: c.registrationType,
+            slNo: c.slNo,
             batchType: c.batchType
         }));
 
-        const timetables = timetableGenerator.generateWithMetadata(
+        let timetables = timetableGenerator.generateWithMetadata(
             coursesData,
             semesterConfig.preferences
         );
 
         if (timetables.length === 0) {
-            return res.status(400).json({
-                error: 'No valid timetables could be generated',
-                message: 'Check for slot clashes or batch preference restrictions'
-            });
+            timetables = timetableGenerator.generateWithoutClashConstraint(
+                coursesData,
+                semesterConfig.preferences
+            );
+
+            if (timetables.length === 0) {
+                semesterConfig.status = 'failed';
+                await semesterConfig.save();
+                return res.status(400).json({
+                    error: 'No valid timetables could be generated',
+                    message: `No timetable variants could be created for ${semesterConfig.preferences.batchPreference} preference.`
+                });
+            }
         }
 
         const generatedTimetable = new GeneratedTimetable({
@@ -196,13 +216,34 @@ router.post('/generate', async (req, res) => {
         await generatedTimetable.save();
         semesterConfig.status = 'completed';
         await semesterConfig.save();
+        const usedRelaxedMode = timetables.some((tt) => tt.generationMode === 'relaxed');
+        const usedFallbackMode = timetables.some((tt) => tt.generationMode === 'fallback_non_clash_checked');
+
+        // Log Activity
+        const ActivityLog = require('../models/ActivityLog');
+        await ActivityLog.create({
+            userId: semesterConfig.userId,
+            action: 'Schedule Generated',
+            details: `${semesterConfig.semester || 'Current Semester'} - ${timetables.length} options generated`,
+            metadata: {
+                semesterConfigId: semesterConfig._id.toString(),
+                generatedTimetableId: generatedTimetable._id.toString()
+            }
+        });
 
         res.json({
             message: 'Timetables generated successfully',
             semesterConfigId: semesterConfig._id,
             generatedTimetableId: generatedTimetable._id,
             timetablesCount: timetables.length,
-            timetables: timetables.slice(0, semesterConfig.preferences.maxTimetables)
+            timetables: timetables,
+            appliedPreferences: semesterConfig.preferences,
+            generationMode: usedFallbackMode ? 'fallback_non_clash_checked' : (usedRelaxedMode ? 'relaxed' : 'strict'),
+            warning: usedFallbackMode
+                ? 'Returned timetable variants without strict clash checks. Review overlaps before finalizing.'
+                : (usedRelaxedMode
+                    ? 'Some course groups were skipped due to unavoidable slot clashes. Showing best possible timetable options.'
+                    : null)
         });
 
     } catch (error) {
