@@ -8,15 +8,16 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: "1.5rem",
       screens: {
         "2xl": "1400px",
       },
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Outfit', 'sans-serif'],
+        sans: ['"Open Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Arial', 'sans-serif'],
+        display: ['"Open Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Arial', 'sans-serif'],
+        serif: ['Times', 'Times New Roman', 'Georgia', 'serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -28,7 +29,6 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          glow: "hsl(var(--primary-glow))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -76,17 +76,15 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-        xl: "1.25rem",
-        "2xl": "2rem",
+        DEFAULT: "4px",
+        sm: "2px",
+        md: "4px",
+        lg: "6px",
+        xl: "8px",
       },
       boxShadow: {
-        'glow': '0 0 20px hsl(var(--primary-glow))',
-        'glow-lg': '0 0 40px hsl(var(--primary-glow))',
-        'glass': '0 8px 16px rgba(0, 0, 0, 0.2)',
-        'glass-lg': '0 20px 40px rgba(0, 0, 0, 0.4)',
+        subtle: "0 1px 2px rgba(0, 0, 0, 0.05)",
+        card: "0 1px 3px rgba(0, 0, 0, 0.08)",
       },
       keyframes: {
         "accordion-down": {
@@ -97,20 +95,10 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "pulse-glow": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
-        },
-        "float": {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-10px)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
-        "float": "float 6s ease-in-out infinite",
       },
     },
   },

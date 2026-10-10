@@ -1,4 +1,4 @@
-const { hasClash, filterCoursesByBatch, getTimeSlots } = require('../utils/slotMapping');
+const { hasClash, filterCoursesByBatch, getTimeSlots, validateTimetableBatchPurity, getTimetableBatch } = require('../utils/slotMapping');
 
 function normalizeFacultyName(faculty) {
     return (faculty || '').toString().trim().toUpperCase();
@@ -121,12 +121,32 @@ function generateTimetables(courses, preferences = {}) {
  */
 function generateCombinations(courses, preferences = {}) {
     const {
-        batchPreference = 'Both',
+        batchPreference = 'Morning',
         maxTimetables = 50
     } = preferences;
 
     if (!Array.isArray(courses) || courses.length === 0) {
         return [];
+    }
+
+    // VIT FFCS strictly separates Morning and Evening batches:
+    // Morning: Theory in *1 series (08:00 - 13:00) + Labs in L31-L60 (14:00 - 19:20).
+    // Evening: Theory in *2 series (14:00 - 19:00) + Labs in L1-L30 (08:00 - 13:20).
+    // An individual schedule NEVER mixes morning (*1) and evening (*2) shifts.
+    // When 'Both' is requested, pure Morning and pure Evening timetables are generated separately.
+    if (batchPreference === 'Both') {
+        const half = Math.ceil(maxTimetables / 2);
+        const morningCombos = generateCombinations(courses, {
+            ...preferences,
+            batchPreference: 'Morning',
+            maxTimetables: half
+        });
+        const eveningCombos = generateCombinations(courses, {
+            ...preferences,
+            batchPreference: 'Evening',
+            maxTimetables: half
+        });
+        return [...morningCombos, ...eveningCombos];
     }
 
     const optionGroups = buildCourseOptionGroups(courses, batchPreference);
@@ -143,7 +163,8 @@ function generateCombinations(courses, preferences = {}) {
         strictCombinations,
         maxTimetables,
         constrainedFamilies,
-        new Map()
+        new Map(),
+        batchPreference
     );
     if (strictCombinations.length > 0) {
         return strictCombinations.map((courses) => ({
@@ -168,7 +189,8 @@ function generateCombinations(courses, preferences = {}) {
         tracker,
         maxTimetables,
         constrainedFamilies,
-        new Map()
+        new Map(),
+        batchPreference
     );
 
     return relaxedCombinations.map((combo) => ({
@@ -246,7 +268,8 @@ function backtrackOptionGroups(
     allTimetables,
     maxResults,
     constrainedFamilies,
-    selectedFacultyByFamily
+    selectedFacultyByFamily,
+    batchPreference
 ) {
     // Stop if we've found enough timetables
     if (allTimetables.length >= maxResults) {
@@ -283,7 +306,8 @@ function backtrackOptionGroups(
             allTimetables,
             maxResults,
             constrainedFamilies,
-            selectedFacultyByFamily
+            selectedFacultyByFamily,
+            batchPreference
         );
         currentTimetable.pop();
         undoFacultyAssignment(facultyAssignment, selectedFacultyByFamily);
@@ -309,7 +333,8 @@ function backtrackOptionGroupsRelaxed(
     tracker,
     maxResults,
     constrainedFamilies,
-    selectedFacultyByFamily
+    selectedFacultyByFamily,
+    batchPreference
 ) {
     const remainingGroups = optionGroups.length - groupIndex;
     if (selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups) {
@@ -328,18 +353,20 @@ function backtrackOptionGroupsRelaxed(
         }
 
         if (selectedGroupsCount === tracker.bestSelectedGroups && allTimetables.length < maxResults) {
-            const courseSignature = currentTimetable
-                .map((course) => [course.courseCode, course.courseType, course.slot, course.faculty, course.venue].join('|'))
-                .sort()
-                .join('||');
-            const excludedSignature = [...excludedGroupKeys].sort().join('|');
-            const signature = `${courseSignature}##${excludedSignature}`;
-            if (!tracker.seen.has(signature)) {
-                tracker.seen.add(signature);
-                allTimetables.push({
-                    courses: [...currentTimetable],
-                    excludedGroupKeys: [...excludedGroupKeys]
-                });
+            if (validateTimetableBatchPurity(currentTimetable, batchPreference)) {
+                const courseSignature = currentTimetable
+                    .map((course) => [course.courseCode, course.courseType, course.slot, course.faculty, course.venue].join('|'))
+                    .sort()
+                    .join('||');
+                const excludedSignature = [...excludedGroupKeys].sort().join('|');
+                const signature = `${courseSignature}##${excludedSignature}`;
+                if (!tracker.seen.has(signature)) {
+                    tracker.seen.add(signature);
+                    allTimetables.push({
+                        courses: [...currentTimetable],
+                        excludedGroupKeys: [...excludedGroupKeys]
+                    });
+                }
             }
         }
         return;
@@ -370,7 +397,8 @@ function backtrackOptionGroupsRelaxed(
             tracker,
             maxResults,
             constrainedFamilies,
-            selectedFacultyByFamily
+            selectedFacultyByFamily,
+            batchPreference
         );
         currentTimetable.pop();
         undoFacultyAssignment(facultyAssignment, selectedFacultyByFamily);
@@ -386,7 +414,8 @@ function backtrackOptionGroupsRelaxed(
         tracker,
         maxResults,
         constrainedFamilies,
-        selectedFacultyByFamily
+        selectedFacultyByFamily,
+        batchPreference
     );
 }
 
@@ -507,11 +536,16 @@ function generateWithMetadata(courses, preferences = {}) {
         const schedule = createSchedule(courseList);
         const features = calculateFeatures(schedule);
 
+        const ttBatch = getTimetableBatch(courseList);
         return {
             timetableId: `TT-${Date.now()}-${index}`,
+            batch: ttBatch,
             courses: courseList,
             schedule,
-            features,
+            features: {
+                ...features,
+                batchShift: ttBatch
+            },
             generationMode: combo.generationMode,
             excludedCourseGroups: combo.excludedGroupKeys,
             totalCourses: courseList.length,
@@ -529,12 +563,19 @@ function generateWithMetadata(courses, preferences = {}) {
  */
 function generateWithoutClashConstraint(courses, preferences = {}) {
     const {
-        batchPreference = 'Both',
+        batchPreference = 'Morning',
         maxTimetables = 50
     } = preferences;
 
     if (!Array.isArray(courses) || courses.length === 0) {
         return [];
+    }
+
+    if (batchPreference === 'Both') {
+        const half = Math.ceil(maxTimetables / 2);
+        const m = generateWithoutClashConstraint(courses, { ...preferences, batchPreference: 'Morning', maxTimetables: half });
+        const e = generateWithoutClashConstraint(courses, { ...preferences, batchPreference: 'Evening', maxTimetables: half });
+        return [...m, ...e];
     }
 
     const optionGroups = buildCourseOptionGroups(courses, batchPreference);

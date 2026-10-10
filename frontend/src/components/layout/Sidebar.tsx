@@ -6,39 +6,55 @@ import {
   LogOut,
   User,
   GraduationCap,
+  FileSpreadsheet,
+  ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LogoIcon } from "@/components/common/AppLogo";
 
-const sidebarItems = [
+const academicItems = [
   {
     icon: LayoutDashboard,
     label: "Dashboard Home",
     href: "/dashboard",
   },
   {
-    icon: Calendar,
+    icon: FileSpreadsheet,
     label: "Timetable Generator",
     href: "/upload",
   },
   {
-    icon: GraduationCap,
+    icon: Calendar,
     label: "My Schedules",
     href: "/results",
   },
 ];
 
-const settingsItems = [
+const studentServices = [
   {
     icon: User,
-    label: "Student Account",
+    label: "Student Profile",
     href: "/student-account",
   },
   {
     icon: Settings,
-    label: "Global Preferences",
+    label: "Slot Preferences",
     href: "/global-preferences",
+  },
+];
+
+const complianceItems = [
+  {
+    icon: ShieldCheck,
+    label: "Privacy Policy",
+    href: "/privacy-policy",
+  },
+  {
+    icon: FileText,
+    label: "Terms of Service",
+    href: "/terms",
   },
 ];
 
@@ -47,106 +63,125 @@ const Sidebar = () => {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="hidden lg:flex flex-col w-[280px] h-screen bg-card/50 backdrop-blur-xl border-r border-border/40 fixed left-0 top-0 z-50">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-          <Calendar className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="font-display font-bold text-xl tracking-tight">
-            FFCS<span className="text-primary">AGENT</span>
-          </h1>
-        </div>
-      </div>
-
-      <div className="flex-1 px-4 py-6 overflow-y-auto custom-scrollbar">
-        <div className="mb-8">
-          <p className="px-4 text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
-            Main Menu
-          </p>
-          <div className="space-y-1">
-            {sidebarItems.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  )}
-                >
-                  <item.icon
-                    className={cn(
-                      "w-5 h-5 transition-transform duration-300 group-hover:scale-110",
-                      isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary"
-                    )}
-                  />
-                  <span className="font-medium">{item.label}</span>
-                  {isActive && (
-                    <div className="ml-auto w-1 h-4 bg-primary-foreground/30 rounded-full" />
-                  )}
-                </Link>
-              );
-            })}
+    <aside className="hidden lg:flex flex-col w-[260px] bg-white border-r border-slate-300 fixed left-0 top-[57px] bottom-0 z-30 overflow-y-auto">
+      {/* Student Quick Header */}
+      <div className="p-4 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded bg-[#2455a3] text-white flex items-center justify-center font-bold text-xs shrink-0">
+            {user?.name ? user.name.charAt(0).toUpperCase() : "S"}
           </div>
-        </div>
-
-        <div>
-          <p className="px-4 text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
-            Settings & Tools
-          </p>
-          <div className="space-y-1">
-            {settingsItems.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  )}
-                >
-                  <item.icon
-                    className={cn(
-                      "w-5 h-5 transition-transform duration-300 group-hover:scale-110",
-                      isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary"
-                    )}
-                  />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              );
-            })}
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-300 group mt-4"
-            >
-              <LogOut className="w-5 h-5 transition-transform duration-300 group-hover:-translate-x-1" />
-              <span className="font-medium">Logout</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 border-t border-border/40 bg-card/30">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/10 border border-primary/25 shadow-[0_0_0_1px_rgba(99,102,241,0.15)]">
-          <Avatar className="h-10 w-10 border border-primary/30">
-            <AvatarFallback className="bg-primary/20 text-primary font-bold">
-              {user?.name ? user.name.charAt(0).toUpperCase() : "S"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold truncate">{user?.name || user?.vitEmail?.split("@")[0] || "User"}</p>
-            <p className="text-xs text-muted-foreground truncate font-mono">
-              {user?.registrationNumber || user?.vitEmail || "No registration number"}
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-800 truncate">
+              {user?.name || user?.vitEmail?.split("@")[0] || "Student"}
+            </p>
+            <p className="text-[10px] text-slate-500 font-mono truncate">
+              {user?.registrationNumber || user?.vitEmail || "VITian"}
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="flex-1 px-3 py-4 space-y-6">
+        {/* Academics Section */}
+        <div>
+          <p className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+            Academics &amp; Timetable
+          </p>
+          <div className="space-y-0.5">
+            {academicItems.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 rounded text-xs font-semibold transition-colors",
+                    isActive
+                      ? "bg-[#2455a3] text-white"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  )}
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Student Services Section */}
+        <div>
+          <p className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+            Student Services
+          </p>
+          <div className="space-y-0.5">
+            {studentServices.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 rounded text-xs font-semibold transition-colors",
+                    isActive
+                      ? "bg-[#2455a3] text-white"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  )}
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Compliance Section */}
+        <div>
+          <p className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+            Institutional Notices
+          </p>
+          <div className="space-y-0.5">
+            {complianceItems.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 rounded text-xs font-semibold transition-colors",
+                    isActive
+                      ? "bg-[#2455a3] text-white"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                  )}
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* VTOP System Crest */}
+      <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50/80 flex items-center gap-2.5">
+        <LogoIcon className="w-6 h-6 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold text-[#1b4b8a] leading-tight">VTOP FFCS Engine</p>
+          <p className="text-[10px] text-slate-500 leading-tight">Clash-Free Optimizer</p>
+        </div>
+      </div>
+
+      {/* Logout button */}
+      <div className="p-3 border-t border-slate-200 bg-slate-50">
+        <button
+          onClick={logout}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-xs font-bold text-red-700 hover:bg-red-50 border border-red-200 transition-colors"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Sign Out Session</span>
+        </button>
       </div>
     </aside>
   );

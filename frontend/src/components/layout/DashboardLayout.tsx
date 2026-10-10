@@ -9,22 +9,18 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return (
-    <div className="min-h-screen">
-      <Sidebar />
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <Header />
 
-      <div className="flex flex-col min-h-screen relative overflow-hidden lg:pl-[280px]">
-        {/* Ambient Background Glows */}
-        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-primary/10 blur-[150px] rounded-full -z-10 animate-pulse" />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-accent/5 blur-[120px] rounded-full -z-10" />
+      <div className="flex flex-1 relative">
+        <Sidebar />
 
-        <Header />
-
-        <main className="flex-1 p-4 lg:p-10 max-w-[1400px] mx-auto w-full">
+        <main className="flex-1 p-4 lg:p-6 max-w-[1440px] mx-auto w-full lg:ml-[260px]">
           {children}
         </main>
-
-        <Footer />
       </div>
+
+      <Footer />
     </div>
   );
 };

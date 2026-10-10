@@ -12,24 +12,24 @@ interface StatCardProps {
 
 const colorMap = {
   primary: {
-    bg: "bg-primary/20",
-    text: "text-primary",
-    border: "border-primary/30",
+    bg: "bg-blue-50",
+    text: "text-[#2455a3]",
+    border: "border-blue-200",
   },
   secondary: {
-    bg: "bg-secondary/20",
-    text: "text-secondary",
-    border: "border-secondary/30",
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    border: "border-slate-200",
   },
   accent: {
-    bg: "bg-accent/20",
-    text: "text-accent",
-    border: "border-accent/30",
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
   },
   success: {
-    bg: "bg-success/20",
-    text: "text-success",
-    border: "border-success/30",
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
   },
 };
 
@@ -44,30 +44,30 @@ const StatCard = ({
   const colors = colorMap[color];
 
   return (
-    <GlassCard className="reveal">
-      <div className="flex items-start justify-between">
+    <GlassCard className="p-4 border border-slate-300">
+      <div className="flex items-center justify-between">
         <div
-          className={`p-3 rounded-xl ${colors.bg} ${colors.border} border`}
+          className={`p-2 rounded ${colors.bg} ${colors.border} border`}
         >
-          <Icon className={`w-5 h-5 ${colors.text}`} />
+          <Icon className={`w-4 h-4 ${colors.text}`} />
         </div>
         {trend && (
           <span
-            className={`text-xs font-bold px-2 py-1 rounded-full ${
+            className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
               trendUp
-                ? "bg-success/20 text-success"
-                : "bg-secondary/20 text-secondary"
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : "bg-slate-100 text-slate-700 border-slate-200"
             }`}
           >
             {trend}
           </span>
         )}
       </div>
-      <div className="mt-4">
-        <p className="text-text-muted text-xs font-bold uppercase tracking-wider">
+      <div className="mt-3">
+        <p className="text-slate-500 text-[11px] font-bold uppercase tracking-wider">
           {label}
         </p>
-        <p className="font-display text-3xl font-black mt-1 text-gradient">
+        <p className="text-2xl font-bold mt-0.5 text-slate-900">
           {value}
         </p>
       </div>

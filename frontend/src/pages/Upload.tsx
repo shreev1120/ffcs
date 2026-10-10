@@ -3,14 +3,19 @@ import {
   Upload as UploadIcon,
   FileText,
   CheckCircle2,
-  Sparkles,
   ArrowRight,
+  AlertCircle,
+  FileSpreadsheet,
+  ShieldAlert,
+  Clock,
+  Check,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import GlassCard from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/button";
+import SEO from "@/components/common/SEO";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { API_BASE_URL } from "@/lib/api";
 import { useAuth, type UserPreferences } from "@/context/AuthContext";
 import {
@@ -26,8 +31,11 @@ const Upload = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPreferenceModal, setShowPreferenceModal] = useState(false);
-  const [batchPreference, setBatchPreference] = useState<UserPreferences["batchPreference"]>(null);
+  const [batchPreference, setBatchPreference] = useState<"Morning" | "Evening">("Morning");
+  const [dataConsent, setDataConsent] = useState(true);
+  const [honeypot, setHoneypot] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, updatePreferences } = useAuth();
@@ -46,27 +54,50 @@ const Upload = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+    setErrorMessage(null);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
+      const droppedFile = e.dataTransfer.files[0];
+      const ext = droppedFile.name.split(".").pop()?.toLowerCase();
+      if (!["xlsx", "xls", "csv", "json"].includes(ext || "")) {
+        setErrorMessage("Unsupported file type. Please upload a .xlsx, .xls, or .csv file.");
+        return;
+      }
+      setFile(droppedFile);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMessage(null);
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selected = e.target.files[0];
+      const ext = selected.name.split(".").pop()?.toLowerCase();
+      if (!["xlsx", "xls", "csv", "json"].includes(ext || "")) {
+        setErrorMessage("Unsupported file type. Please upload a .xlsx, .xls, or .csv file.");
+        return;
+      }
+      setFile(selected);
     }
   };
 
-  const handleUpload = async () => {
-    if (!file) return;
-    const effectiveBatchPreference = batchPreference;
-
-    if (!effectiveBatchPreference) {
-      setShowPreferenceModal(true);
+  const handleUpload = async (overrideBatch?: "Morning" | "Evening") => {
+    if (honeypot.trim().length > 0) {
+      setErrorMessage("Invalid bot submission.");
+      return;
+    }
+    if (!file) {
+      setErrorMessage("Please select or drop an Excel (.xlsx) file first.");
+      return;
+    }
+    if (!dataConsent) {
+      setErrorMessage("Please confirm course data processing consent before generating.");
       return;
     }
 
+    const effectiveBatchPreference = overrideBatch || batchPreference || "Morning";
+
     setIsUploading(true);
+    setErrorMessage(null);
+
     const formData = new FormData();
     formData.append("excelFile", file);
     formData.append("userId", user?.id || "");
@@ -81,27 +112,35 @@ const Upload = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Upload failed");
+        throw new Error(data.error || "Failed to process course registration Excel file.");
       }
 
-      toast({
-        title: "Success!",
-        description: "File uploaded and parsed successfully.",
-      });
+      const rawCourses = data.courses || [];
+      const courses = rawCourses.map((c: any) => ({
+        code: c.code || c.courseCode,
+        title: c.title || c.courseTitle || c.name,
+        credits: c.credits ? Number(c.credits) : 3,
+        type: c.courseType || c.type || "Theory",
+        courseType: c.courseType || c.type || "Theory",
+        slot: c.slot || "",
+        theorySlots: Array.isArray(c.theorySlots) ? c.theorySlots : (c.slot ? [c.slot] : []),
+        labSlots: Array.isArray(c.labSlots) ? c.labSlots : [],
+        faculty: c.faculty || "Faculty",
+        venue: c.venue || "TBD",
+      }));
 
-      // After upload, generate timetables
       const genResponse = await fetch(`${API_BASE_URL}/timetable/generate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           semesterConfigId: data.semesterConfigId,
+          courses,
           preferences: {
             batchPreference: effectiveBatchPreference,
-            rankingCriteria: user?.preferences.rankingCriteria || "balanced",
-            maxTimetables: user?.preferences.maxTimetables || 12,
+            preferredTheorySlots: user?.preferences?.preferredTheorySlots || [],
+            avoidEarlyMorning: user?.preferences?.avoidEarlyMorning || false,
+            freeDayPreferred: user?.preferences?.freeDayPreferred || null,
           },
         }),
       });
@@ -109,25 +148,20 @@ const Upload = () => {
       const genData = await genResponse.json();
 
       if (!genResponse.ok) {
-        throw new Error(genData.error || "Generation failed");
+        throw new Error(genData.error || "Failed to generate conflict-free timetables.");
       }
 
       toast({
         title: "Timetables Generated",
-        description: `Found ${genData.timetablesCount} valid schedules.`,
+        description: `Found ${genData.timetablesCount} valid ${effectiveBatchPreference} schedules with zero clashes.`,
       });
-      if (genData.warning) {
-        toast({
-          title: "Heads up",
-          description: genData.warning,
-        });
-      }
 
-      navigate("/results", { state: { timetableData: genData } });
+      navigate("/results", { state: { timetableData: genData, selectedBatch: effectiveBatchPreference } });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred";
+      setErrorMessage(message);
       toast({
-        title: "Error",
+        title: "Generation Error",
         description: message,
         variant: "destructive",
       });
@@ -138,178 +172,352 @@ const Upload = () => {
 
   const handlePreferenceSelection = async (selected: "Morning" | "Evening") => {
     setBatchPreference(selected);
+    setShowPreferenceModal(false);
     try {
       await updatePreferences({ batchPreference: selected });
-      setShowPreferenceModal(false);
-      toast({
-        title: "Preference saved",
-        description: `${selected} slots will be used for timetable generation.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Failed to save preference",
-        description: error instanceof Error ? error.message : "Please try again",
-        variant: "destructive",
-      });
+    } catch {
+      // Non-blocking preference sync
     }
+    handleUpload(selected);
   };
 
   return (
     <DashboardLayout>
+      <SEO
+        title="Timetable Generator"
+        description="Upload your VTOP course Excel file to generate 100% conflict-free academic schedules for VIT."
+      />
+
       <Dialog open={showPreferenceModal} onOpenChange={setShowPreferenceModal}>
-        <DialogContent className="bg-background/95 backdrop-blur border-border">
+        <DialogContent className="bg-white border-slate-300 text-slate-800 rounded">
           <DialogHeader>
-            <DialogTitle>Select your slot preference</DialogTitle>
-            <DialogDescription>
-              Choose one option. We will prioritize this batch and use mixed slots only if required to form a valid timetable.
+            <DialogTitle className="text-slate-900 font-bold">Select Slot Timing Preference</DialogTitle>
+            <DialogDescription className="text-slate-600 text-xs">
+              Choose your primary batch preference. The algorithm prioritizes theory and lab combinations accordingly.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Button variant="outline" onClick={() => handlePreferenceSelection("Morning")}>
-              Morning Slots
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center border-slate-300 hover:border-[#2455a3] hover:bg-blue-50 text-slate-800 rounded"
+              onClick={() => handlePreferenceSelection("Morning")}
+            >
+              <span className="font-bold text-xs text-[#2455a3]">Morning Batch</span>
+              <span className="text-[11px] text-slate-500">Theory 8:00 AM to 1:00 PM</span>
             </Button>
-            <Button variant="outline" onClick={() => handlePreferenceSelection("Evening")}>
-              Evening Slots
+            <Button
+              variant="outline"
+              className="h-14 flex flex-col items-center justify-center border-slate-300 hover:border-[#2455a3] hover:bg-blue-50 text-slate-800 rounded"
+              onClick={() => handlePreferenceSelection("Evening")}
+            >
+              <span className="font-bold text-xs text-[#2455a3]">Evening Batch</span>
+              <span className="text-[11px] text-slate-500">Theory 2:00 PM to 7:00 PM</span>
             </Button>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowPreferenceModal(false)}>
+            <Button variant="ghost" className="text-xs" onClick={() => setShowPreferenceModal(false)}>
               Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Header */}
-      <div className="mb-10 reveal">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-          <span className="text-xs font-bold text-primary uppercase tracking-widest">
-            Timetable Generator
+      {/* Institutional Page Title */}
+      <div className="mb-6 bg-white border border-slate-300 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[11px] font-bold text-[#2455a3] uppercase tracking-wider">
+            Academic Timetable Generator
           </span>
+          <span className="text-slate-300">•</span>
+          <span className="text-xs text-slate-500">VTOP Course Registration Import</span>
         </div>
-        <h1 className="font-display text-4xl lg:text-5xl font-black text-gradient leading-tight">
-          Upload Your <span className="text-primary-gradient">Course Data</span>
+        <h1 className="text-2xl font-bold text-slate-900 leading-tight">
+          Upload Course Registration Excel (.xlsx)
         </h1>
-        <p className="text-text-secondary mt-3 max-w-xl">
-          Upload your course list or paste your VTOP data. Our AI will generate
-          optimal, conflict-free timetables in seconds.
+        <p className="text-slate-600 mt-2 text-xs leading-relaxed max-w-2xl">
+          Export your course registration sheet from VTOP and upload it below. Our backtracking solver evaluates slot permutations to generate 100% clash-free schedules.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upload Zone */}
-        <div className="lg:col-span-2">
-          <GlassCard hover={false} className="reveal">
+        <div className="lg:col-span-2 space-y-4">
+          {/* Error Banner */}
+          {errorMessage && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="p-3.5 rounded bg-red-50 border border-red-200 text-red-800 flex items-start gap-3 text-xs"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+              <div className="flex-1">
+                <p className="font-bold mb-0.5">Upload Error</p>
+                <p className="leading-relaxed">{errorMessage}</p>
+                <p className="mt-1 text-[11px] text-red-700">
+                  Tip: Ensure your file contains course code, title, and slot columns exported from VTOP.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Processing Indicator */}
+          {isUploading && (
+            <div
+              role="status"
+              className="p-4 rounded bg-blue-50 border border-blue-200 flex items-center gap-3 text-xs"
+            >
+              <div className="w-5 h-5 border-2 border-[#2455a3] border-t-transparent rounded-full animate-spin shrink-0" />
+              <div>
+                <p className="font-bold text-[#1b4b8a]">Optimizing Course Combinations...</p>
+                <p className="text-slate-600 mt-0.5">
+                  Solving theory and laboratory slot constraints with zero clashes.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Dedicated VTOP Batch Shift Selector */}
+          <div className="bg-white border border-slate-300 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#2455a3]" />
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900">
+                  Target Academic Shift (Batch)
+                </h3>
+              </div>
+              <span className="text-[10px] bg-blue-50 text-[#2455a3] font-semibold px-2 py-0.5 rounded border border-blue-200">
+                VIT Slot Standard
+              </span>
+            </div>
+
+            <p className="text-slate-600 text-xs mb-3">
+              Select your academic shift. According to VIT FFCS regulations, shifts are strictly separated with zero mixed slots:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Morning Batch Card */}
+              <button
+                type="button"
+                onClick={() => setBatchPreference("Morning")}
+                className={`p-3.5 rounded border transition-all text-left flex flex-col justify-between ${
+                  batchPreference === "Morning"
+                    ? "border-[#2455a3] bg-blue-50/50 ring-2 ring-[#2455a3]/30"
+                    : "border-slate-300 bg-white hover:border-slate-400"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-xs text-slate-900 flex items-center gap-2">
+                      <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                        batchPreference === "Morning" ? "border-[#2455a3] bg-[#2455a3] text-white" : "border-slate-400 bg-white"
+                      }`}>
+                        {batchPreference === "Morning" && <Check className="w-2.5 h-2.5" />}
+                      </span>
+                      Morning Shift
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-[#2455a3] border border-blue-200">
+                      A1 / B1 / C1 ...
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-[11px] text-slate-600 pl-6">
+                    <div><span className="font-semibold text-slate-800">Theory:</span> 08:00 AM – 01:00 PM (*1 series)</div>
+                    <div><span className="font-semibold text-slate-800">Labs:</span> 02:00 PM – 07:30 PM (L31 to L60)</div>
+                  </div>
+                </div>
+                <div className="mt-2 pl-6 text-[10px] text-slate-500 font-medium">
+                  {batchPreference === "Morning" ? "✓ Active selection for this upload" : "Click to select morning shift"}
+                </div>
+              </button>
+
+              {/* Evening Batch Card */}
+              <button
+                type="button"
+                onClick={() => setBatchPreference("Evening")}
+                className={`p-3.5 rounded border transition-all text-left flex flex-col justify-between ${
+                  batchPreference === "Evening"
+                    ? "border-[#2455a3] bg-blue-50/50 ring-2 ring-[#2455a3]/30"
+                    : "border-slate-300 bg-white hover:border-slate-400"
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-xs text-slate-900 flex items-center gap-2">
+                      <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                        batchPreference === "Evening" ? "border-[#2455a3] bg-[#2455a3] text-white" : "border-slate-400 bg-white"
+                      }`}>
+                        {batchPreference === "Evening" && <Check className="w-2.5 h-2.5" />}
+                      </span>
+                      Evening Shift
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                      A2 / B2 / C2 ...
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-[11px] text-slate-600 pl-6">
+                    <div><span className="font-semibold text-slate-800">Labs:</span> 08:00 AM – 01:20 PM (L1 to L30)</div>
+                    <div><span className="font-semibold text-slate-800">Theory:</span> 02:00 PM – 07:00 PM (*2 series)</div>
+                  </div>
+                </div>
+                <div className="mt-2 pl-6 text-[10px] text-slate-500 font-medium">
+                  {batchPreference === "Evening" ? "✓ Active selection for this upload" : "Click to select evening shift"}
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-300 rounded shadow-card p-6">
             <div
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
-              className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${isDragging
-                ? "border-primary bg-primary/10 scale-[1.02]"
-                : file
-                  ? "border-success bg-success/5"
-                  : "border-border hover:border-primary/50 hover:bg-primary/5"
-                }`}
+              className={`relative border-2 border-dashed rounded p-8 text-center transition-colors ${
+                isDragging
+                  ? "border-[#2455a3] bg-blue-50/50"
+                  : file
+                  ? "border-emerald-500 bg-emerald-50/30"
+                  : errorMessage
+                  ? "border-red-400 bg-red-50/30"
+                  : "border-slate-300 hover:border-[#2455a3] bg-slate-50/50"
+              }`}
             >
               <input
+                id="excel-file-input"
                 type="file"
+                aria-label="Upload Course Excel file"
+                aria-invalid={!!errorMessage}
                 onChange={handleFileChange}
-                accept=".csv,.xlsx,.json"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                accept=".xlsx,.xls,.csv,.json"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                disabled={isUploading}
               />
 
               {file ? (
-                <div className="space-y-4">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-success/20 flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8 text-success" />
+                <div className="space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded bg-emerald-100 flex items-center justify-center text-emerald-700">
+                    <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="font-display font-bold text-lg">{file.name}</p>
-                    <p className="text-text-muted text-sm mt-1">
-                      {(file.size / 1024).toFixed(1)} KB • Ready to process
+                    <p className="font-bold text-sm text-slate-900">{file.name}</p>
+                    <p className="text-slate-500 text-xs mt-0.5">
+                      {(file.size / 1024).toFixed(1)} KB • Ready for schedule generation
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div
-                    className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center transition-all ${isDragging
-                      ? "bg-primary/30 scale-110"
-                      : "bg-primary/20"
-                      }`}
-                  >
-                    <UploadIcon
-                      className={`w-8 h-8 transition-all ${isDragging ? "text-primary scale-110" : "text-primary/70"
-                        }`}
-                    />
+                <div className="space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded bg-blue-100 flex items-center justify-center text-[#2455a3]">
+                    <UploadIcon className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="font-display font-bold text-lg">
-                      Drop your file here
+                    <p className="font-bold text-sm text-slate-800">
+                      Drop your VTOP Course Registration Excel file here
                     </p>
-                    <p className="text-text-muted text-sm mt-1">
-                      or click to browse • CSV, XLSX, JSON supported
+                    <p className="text-slate-500 text-xs mt-1">
+                      or click to browse from device • Supports .xlsx, .xls, .csv
                     </p>
                   </div>
                 </div>
               )}
             </div>
 
+            {/* Consent Checkbox */}
+            {file && (
+              <div className="mt-4 p-3 rounded bg-slate-50 border border-slate-200 text-xs flex items-start gap-2.5 text-left">
+                <input
+                  id="upload-data-consent"
+                  type="checkbox"
+                  checked={dataConsent}
+                  onChange={(e) => setDataConsent(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300 text-[#2455a3] focus:ring-[#2455a3] h-3.5 w-3.5 shrink-0"
+                />
+                <label htmlFor="upload-data-consent" className="cursor-pointer select-none text-slate-700 leading-tight">
+                  I confirm that this is my course registration data and consent to timetable processing under the{" "}
+                  <Link to="/privacy-policy" className="text-[#2455a3] underline font-semibold">Privacy Policy</Link> and{" "}
+                  <Link to="/terms" className="text-[#2455a3] underline font-semibold">Terms</Link>.
+                </label>
+              </div>
+            )}
+
+            {/* Hidden honeypot field for spam prevention */}
+            <div className="hidden" aria-hidden="true">
+              <input
+                type="text"
+                name="upload_hp"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+              />
+            </div>
+
             {/* Action Buttons */}
-            <div className="flex items-center gap-4 mt-6">
+            <div className="flex flex-col sm:flex-row items-center gap-3 mt-5">
               <Button
-                size="lg"
+                size="default"
                 disabled={!file || isUploading}
                 onClick={handleUpload}
-                className="flex-1 bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity gap-2 shadow-glow"
+                className="w-full sm:flex-1 bg-[#2455a3] hover:bg-[#1b4b8a] text-white font-bold text-xs h-10 rounded shadow-sm gap-2"
               >
                 {isUploading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <Sparkles className="w-4 h-4" />
+                  <FileSpreadsheet className="w-4 h-4" />
                 )}
-                {isUploading ? "Processing..." : "Generate Timetables"}
-                <ArrowRight className="w-4 h-4" />
+                <span>{isUploading ? "Generating Schedules..." : "Generate Conflict-Free Timetables"}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Button>
-              {file && (
+
+              {file && !isUploading && (
                 <Button
                   variant="outline"
-                  size="lg"
-                  onClick={() => setFile(null)}
-                  className="border-border hover:border-primary/50 hover:bg-primary/5"
+                  size="default"
+                  onClick={() => {
+                    setFile(null);
+                    setErrorMessage(null);
+                  }}
+                  className="w-full sm:w-auto border-slate-300 text-slate-700 hover:bg-slate-50 text-xs h-10 rounded"
                 >
-                  Clear
+                  Clear File
                 </Button>
               )}
             </div>
-          </GlassCard>
+          </div>
         </div>
 
-        {/* Instructions */}
+        {/* Instructions & Guidelines */}
         <div className="space-y-4">
-          <GlassCard className="reveal">
-            <h3 className="font-display font-bold flex items-center gap-2 mb-4">
-              <FileText className="w-4 h-4 text-primary" />
-              How It Works
+          <div className="bg-white border border-slate-300 rounded shadow-card p-5">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2 mb-3 pb-2 border-b border-slate-200">
+              <FileText className="w-4 h-4 text-[#2455a3]" />
+              <span>VTOP Export Instructions</span>
             </h3>
-            <ol className="space-y-3">
+            <ol className="space-y-3 text-xs">
               {[
-                "Export your course list from VTOP",
-                "Upload the file or paste data",
-                "Set your preferences (optional)",
-                "Get AI-optimized schedules instantly",
+                { title: "Export Course Allocation", desc: "Log in to VTOP and export your registered courses as Excel." },
+                { title: "Upload Excel File", desc: "Drag and drop the sheet into the upload zone above." },
+                { title: "Select Batch Shift", desc: "Choose preferred Morning or Evening theory slot distribution." },
+                { title: "Review Valid Schedules", desc: "Inspect clash-free timetable combinations and choose your preferred one." },
               ].map((step, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                <li key={i} className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded bg-slate-100 text-[#2455a3] font-bold text-[11px] flex items-center justify-center shrink-0 border border-slate-200 mt-0.5">
                     {i + 1}
                   </span>
-                  <span className="text-sm text-text-secondary">{step}</span>
+                  <div>
+                    <p className="font-bold text-slate-800">{step.title}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{step.desc}</p>
+                  </div>
                 </li>
               ))}
             </ol>
-          </GlassCard>
+          </div>
+
+          <div className="p-3.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+            <p className="leading-relaxed text-[11px]">
+              Files are parsed directly in session memory. Personal registration details are never shared or transferred to third parties.
+            </p>
+          </div>
         </div>
       </div>
     </DashboardLayout>

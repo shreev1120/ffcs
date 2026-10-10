@@ -1,0 +1,21 @@
+{
+  "name": "VIT FFCS Agent",
+  "short_name": "FFCS Agent",
+  "description": "Conflict-Free Timetable Generator & Optimization System for VIT students",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

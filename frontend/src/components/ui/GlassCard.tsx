@@ -11,17 +11,15 @@ interface GlassCardProps extends HTMLAttributes<HTMLDivElement> {
 const GlassCard = ({
   children,
   className,
-  hover = true,
-  glow = false,
+  hover,
+  glow,
   ...rest
 }: GlassCardProps) => {
   return (
     <div
       {...rest}
       className={cn(
-        "glass-card p-6",
-        hover && "hover:translate-y-[-4px] hover:shadow-glass-lg",
-        glow && "shadow-glow",
+        "bg-white border border-border shadow-card rounded p-6 text-foreground",
         className
       )}
     >

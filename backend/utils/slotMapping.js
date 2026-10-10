@@ -248,38 +248,137 @@ function getTimeSlots(slotString) {
  * @param {string} batchPreference - 'Morning', 'Evening', or 'Both'
  * @returns {array} Filtered courses
  */
+function isLabCourse(course) {
+    if (!course) return false;
+    const type = (course.courseType || '').toString().toUpperCase();
+    if (type.includes('LAB')) return true;
+    const code = (course.courseCode || '').toString().toUpperCase();
+    if (code.endsWith('P')) return true;
+    const slotCodes = parseSlotString(course.slot || '');
+    return slotCodes.some((code) => /^L\d+$/i.test(code));
+}
+
+function isMorningTheorySlot(slotString) {
+    const slotCodes = parseSlotString(slotString);
+    if (slotCodes.length === 0) return false;
+
+    return slotCodes.every((code) => {
+        const norm = code.toUpperCase();
+        if (/^L\d+$/.test(norm)) return false;
+        if (norm.endsWith('2')) return false;
+        if (norm.endsWith('1')) return true;
+        const info = getSlotInfo(norm);
+        return info && info.batch === 'Morning';
+    });
+}
+
+function isEveningTheorySlot(slotString) {
+    const slotCodes = parseSlotString(slotString);
+    if (slotCodes.length === 0) return false;
+
+    return slotCodes.every((code) => {
+        const norm = code.toUpperCase();
+        if (/^L\d+$/.test(norm)) return false;
+        if (norm.endsWith('1')) return false;
+        if (norm.endsWith('2')) return true;
+        const info = getSlotInfo(norm);
+        return info && info.batch === 'Evening';
+    });
+}
+
+function isMorningLabSlot(slotString) {
+    const slotCodes = parseSlotString(slotString);
+    if (slotCodes.length === 0) return false;
+
+    return slotCodes.every((code) => {
+        const norm = code.toUpperCase();
+        if (/^L\d+$/.test(norm)) {
+            const num = parseInt(norm.slice(1), 10);
+            return num >= 1 && num <= 30;
+        }
+        return false;
+    });
+}
+
+function isEveningLabSlot(slotString) {
+    const slotCodes = parseSlotString(slotString);
+    if (slotCodes.length === 0) return false;
+
+    return slotCodes.every((code) => {
+        const norm = code.toUpperCase();
+        if (/^L\d+$/.test(norm)) {
+            const num = parseInt(norm.slice(1), 10);
+            return num >= 31 && num <= 60;
+        }
+        return false;
+    });
+}
+
+/**
+ * Filter courses by batch preference according to VIT FFCS shift rules:
+ * - Morning Batch: Theory in *1 series (08:00 - 13:00) + Labs in L31-L60 (14:00 - 19:20).
+ * - Evening Batch: Theory in *2 series (14:00 - 19:00) + Labs in L1-L30 (08:00 - 13:20).
+ * No mixed shifts are allowed in an individual batch!
+ * @param {array} courses - Array of course objects
+ * @param {string} batchPreference - 'Morning', 'Evening', or 'Both'
+ * @returns {array} Filtered courses
+ */
 function filterCoursesByBatch(courses, batchPreference) {
+    if (!Array.isArray(courses)) return [];
     if (batchPreference === 'Both') return courses;
 
-    const isLabCourse = (course) => {
-        const type = (course.courseType || '').toString().toUpperCase();
-        if (type.includes('LAB')) {
-            return true;
-        }
-
-        const slotCodes = parseSlotString(course.slot || '');
-        return slotCodes.some((code) => /^L\d+$/i.test(code));
-    };
-
-    const matchesBatchPreference = (course) => {
-        const slotBatch = getSlotBatch(course.slot);
-        if (slotBatch === 'Both') {
-            return false;
-        }
-
+    return courses.filter((course) => {
+        if (!course || !course.slot || course.slot === 'NIL') return false;
         const lab = isLabCourse(course);
+
         if (batchPreference === 'Morning') {
-            // Morning batch students take morning theory and evening labs.
-            return lab ? slotBatch === 'Evening' : slotBatch === 'Morning';
+            return lab ? isEveningLabSlot(course.slot) : isMorningTheorySlot(course.slot);
         }
 
-        // Evening batch students take evening theory and morning labs.
-        return lab ? slotBatch === 'Morning' : slotBatch === 'Evening';
-    };
+        if (batchPreference === 'Evening') {
+            return lab ? isMorningLabSlot(course.slot) : isEveningTheorySlot(course.slot);
+        }
 
-    return courses.filter(course => {
-        return matchesBatchPreference(course);
+        return false;
     });
+}
+
+/**
+ * Validate that every course in a timetable strictly follows the pure batch shift
+ * @param {array} courses
+ * @param {string} batchPreference - 'Morning' or 'Evening'
+ * @returns {boolean}
+ */
+function validateTimetableBatchPurity(courses, batchPreference) {
+    if (!Array.isArray(courses) || courses.length === 0) return false;
+    if (!['Morning', 'Evening'].includes(batchPreference)) return true;
+
+    for (const course of courses) {
+        if (!course || !course.slot || course.slot === 'NIL') continue;
+        const lab = isLabCourse(course);
+
+        if (batchPreference === 'Morning') {
+            if (lab && !isEveningLabSlot(course.slot)) return false;
+            if (!lab && !isMorningTheorySlot(course.slot)) return false;
+        } else if (batchPreference === 'Evening') {
+            if (lab && !isMorningLabSlot(course.slot)) return false;
+            if (!lab && !isEveningTheorySlot(course.slot)) return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Determine whether a complete timetable is pure Morning, pure Evening, or Mixed
+ * @param {array} courses
+ * @returns {string} 'Morning', 'Evening', or 'Mixed'
+ */
+function getTimetableBatch(courses) {
+    if (!Array.isArray(courses) || courses.length === 0) return 'Unknown';
+    if (validateTimetableBatchPurity(courses, 'Morning')) return 'Morning';
+    if (validateTimetableBatchPurity(courses, 'Evening')) return 'Evening';
+    return 'Mixed';
 }
 
 module.exports = {
@@ -291,5 +390,12 @@ module.exports = {
     hasClash,
     getSlotBatch,
     getTimeSlots,
-    filterCoursesByBatch
+    isLabCourse,
+    isMorningTheorySlot,
+    isEveningTheorySlot,
+    isMorningLabSlot,
+    isEveningLabSlot,
+    filterCoursesByBatch,
+    validateTimetableBatchPurity,
+    getTimetableBatch
 };

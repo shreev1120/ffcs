@@ -27,10 +27,15 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    role: {
+        type: String,
+        enum: ['student', 'admin'],
+        default: 'student'
+    },
     preferences: {
         batchPreference: {
             type: String,
-            enum: ['Morning', 'Evening'],
+            enum: ['Morning', 'Evening', 'Both'],
             default: null
         },
         rankingCriteria: {

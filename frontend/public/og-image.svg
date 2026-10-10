@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a192f" />
+      <stop offset="45%" stop-color="#1b4b8a" />
+      <stop offset="100%" stop-color="#091834" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="25%" r="65%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.18" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <circle cx="600" cy="200" r="450" fill="url(#glow)" />
+
+  <!-- Grid decoration lines -->
+  <g stroke="#ffffff" stroke-opacity="0.06" stroke-width="1">
+    <line x1="100" y1="0" x2="100" y2="630" />
+    <line x1="300" y1="0" x2="300" y2="630" />
+    <line x1="500" y1="0" x2="500" y2="630" />
+    <line x1="700" y1="0" x2="700" y2="630" />
+    <line x1="900" y1="0" x2="900" y2="630" />
+    <line x1="1100" y1="0" x2="1100" y2="630" />
+    <line x1="0" y1="150" x2="1200" y2="150" />
+    <line x1="0" y1="315" x2="1200" y2="315" />
+    <line x1="0" y1="480" x2="1200" y2="480" />
+  </g>
+
+  <!-- Brand Badge -->
+  <rect x="445" y="75" width="310" height="42" rx="21" fill="#ffffff" fill-opacity="0.12" stroke="#f59e0b" stroke-opacity="0.6" stroke-width="1.5" />
+  <text x="600" y="102" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="800" fill="#fde047" text-anchor="middle" letter-spacing="3">VIT VELLORE • FFCS AGENT</text>
+
+  <!-- Title -->
+  <text x="600" y="210" font-family="system-ui, -apple-system, sans-serif" font-size="62" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-1">
+    VTOP <tspan fill="url(#accent)">TIMETABLE OPTIMIZER</tspan>
+  </text>
+
+  <!-- Subtitle -->
+  <text x="600" y="275" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="500" fill="#cbd5e1" text-anchor="middle">
+    100% Conflict-Free Timetable Generation • Pure Morning &amp; Evening Batches
+  </text>
+
+  <!-- Metric Cards -->
+  <g transform="translate(180, 350)">
+    <!-- Card 1 -->
+    <rect x="0" y="0" width="240" height="130" rx="12" fill="#0f172a" fill-opacity="0.75" stroke="#334155" stroke-width="1.5" />
+    <text x="30" y="50" font-family="system-ui, sans-serif" font-size="30" font-weight="800" fill="#38bdf8">100%</text>
+    <text x="30" y="80" font-family="system-ui, sans-serif" font-size="15" font-weight="700" fill="#ffffff">Clash-Free</text>
+    <text x="30" y="104" font-family="system-ui, sans-serif" font-size="12" fill="#94a3b8">Backtracking slot engine</text>
+
+    <!-- Card 2 -->
+    <rect x="300" y="0" width="240" height="130" rx="12" fill="#0f172a" fill-opacity="0.75" stroke="#f59e0b" stroke-opacity="0.4" stroke-width="1.5" />
+    <text x="330" y="50" font-family="system-ui, sans-serif" font-size="28" font-weight="800" fill="#fbbf24">A1 / A2 Purity</text>
+    <text x="330" y="80" font-family="system-ui, sans-serif" font-size="15" font-weight="700" fill="#ffffff">Zero Mixed Slots</text>
+    <text x="330" y="104" font-family="system-ui, sans-serif" font-size="12" fill="#94a3b8">Strict Morning &amp; Evening shifts</text>
+
+    <!-- Card 3 -->
+    <rect x="600" y="0" width="240" height="130" rx="12" fill="#0f172a" fill-opacity="0.75" stroke="#334155" stroke-width="1.5" />
+    <text x="630" y="50" font-family="system-ui, sans-serif" font-size="28" font-weight="800" fill="#4ade80">Instant</text>
+    <text x="630" y="80" font-family="system-ui, sans-serif" font-size="15" font-weight="700" fill="#ffffff">VTOP Excel Parser</text>
+    <text x="630" y="104" font-family="system-ui, sans-serif" font-size="12" fill="#94a3b8">1-click schedule synthesis</text>
+  </g>
+
+  <!-- Footer link -->
+  <text x="600" y="560" font-family="system-ui, sans-serif" font-size="14" fill="#94a3b8" text-anchor="middle">
+    Official Academic Utility for VITians • Fully Flexible Credit System (FFCS)
+  </text>
+</svg>

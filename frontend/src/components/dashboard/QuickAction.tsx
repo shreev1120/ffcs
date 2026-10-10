@@ -14,33 +14,20 @@ const QuickAction = ({
   icon: Icon,
   title,
   description,
-  gradient = false,
 }: QuickActionProps) => {
   return (
     <Link
       to={to}
-      className={`group glass-card p-5 flex items-center gap-4 ring-1 ring-foreground/5 hover:ring-primary/30 transition-all reveal ${
-        gradient
-          ? "bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20"
-          : ""
-      }`}
+      className="bg-white border border-slate-300 hover:border-[#2455a3] hover:bg-slate-50/80 p-4 flex items-center gap-3.5 transition-colors rounded shadow-card"
     >
-      <div
-        className={`p-3 rounded-xl ${
-          gradient
-            ? "bg-gradient-to-br from-primary to-accent"
-            : "bg-primary/20 border border-primary/30"
-        }`}
-      >
-        <Icon
-          className={`w-5 h-5 ${gradient ? "text-white" : "text-primary"}`}
-        />
+      <div className="p-2.5 rounded bg-blue-50 border border-blue-200 text-[#2455a3] shrink-0">
+        <Icon className="w-5 h-5 text-[#2455a3]" />
       </div>
-      <div className="flex-1">
-        <h4 className="font-display font-bold text-sm">{title}</h4>
-        <p className="text-text-muted text-xs mt-0.5">{description}</p>
+      <div className="flex-1 min-w-0">
+        <h4 className="font-bold text-sm text-slate-900">{title}</h4>
+        <p className="text-slate-600 text-xs mt-0.5">{description}</p>
       </div>
-      <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
     </Link>
   );
 };

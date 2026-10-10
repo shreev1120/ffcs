@@ -1,22 +1,131 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { CalendarX, Home, Upload, CalendarDays, ArrowLeft, HelpCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import SEO from "@/components/common/SEO";
+import AppLogo from "@/components/common/AppLogo";
 
 const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    console.error("404 Error: Non-existent route accessed:", location.pathname);
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/#/" className="text-primary underline hover:text-primary/90">
-          Return to Home
-        </a>
+    <div className="min-h-screen flex flex-col bg-[#f0f4f8] text-slate-900">
+      <SEO
+        title="404 - Slot Not Found"
+        description="The timetable coordinate or resource you were looking for doesn't exist on VIT FFCS Portal."
+      />
+
+      {/* VTOP Top Navbar */}
+      <nav className="vtop-header-gradient text-white py-2 px-6 shadow-sm border-b border-[#1b4b8a]">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <AppLogo size="sm" textVariant="white" linkTo="/" showBadge={false} />
+          <span className="text-xs text-white/80 font-medium">HTTP 404 System Status</span>
+        </div>
+      </nav>
+
+      <div className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-xl text-center bg-white border border-slate-300 rounded shadow-card p-8 border-t-4 border-t-[#dc2626]">
+          {/* 404 Header */}
+          <div className="w-16 h-16 mx-auto rounded bg-red-100 flex items-center justify-center mb-4 text-red-600">
+            <CalendarX className="w-8 h-8" />
+          </div>
+
+          <span className="text-xs font-bold text-red-700 uppercase tracking-widest px-2.5 py-0.5 rounded bg-red-50 border border-red-200">
+            HTTP 404 • Resource Not Found
+          </span>
+
+          <h1 className="text-2xl font-bold text-slate-900 mt-3 mb-2">
+            Page Not In Timetable Registry
+          </h1>
+
+          <p className="text-slate-600 text-xs max-w-md mx-auto mb-6 leading-relaxed">
+            The URL or slot coordinate requested (<code className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 text-xs font-mono">{location.pathname}</code>) does not exist or has expired.
+          </p>
+
+          {/* Quick Navigation Action Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 text-left">
+            <Link
+              to="/dashboard"
+              className="p-3 rounded border border-slate-200 hover:border-[#2455a3] hover:bg-slate-50 transition-colors flex items-center gap-3"
+            >
+              <div className="p-2 rounded bg-blue-100 text-[#2455a3]">
+                <Home className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-xs text-slate-800">Dashboard Home</p>
+                <p className="text-[11px] text-slate-500">Return to main overview</p>
+              </div>
+            </Link>
+
+            <Link
+              to="/upload"
+              className="p-3 rounded border border-slate-200 hover:border-[#2455a3] hover:bg-slate-50 transition-colors flex items-center gap-3"
+            >
+              <div className="p-2 rounded bg-amber-100 text-amber-800">
+                <Upload className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-xs text-slate-800">Slot Generator</p>
+                <p className="text-[11px] text-slate-500">Upload course sheet</p>
+              </div>
+            </Link>
+
+            <Link
+              to="/results"
+              className="p-3 rounded border border-slate-200 hover:border-[#2455a3] hover:bg-slate-50 transition-colors flex items-center gap-3"
+            >
+              <div className="p-2 rounded bg-emerald-100 text-emerald-800">
+                <CalendarDays className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-xs text-slate-800">My Schedules</p>
+                <p className="text-[11px] text-slate-500">View saved timetables</p>
+              </div>
+            </Link>
+
+            <Link
+              to="/privacy-policy"
+              className="p-3 rounded border border-slate-200 hover:border-[#2455a3] hover:bg-slate-50 transition-colors flex items-center gap-3"
+            >
+              <div className="p-2 rounded bg-slate-100 text-slate-700">
+                <HelpCircle className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-xs text-slate-800">Help &amp; Policies</p>
+                <p className="text-[11px] text-slate-500">Read student guidelines</p>
+              </div>
+            </Link>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              asChild
+              className="w-full sm:w-auto bg-[#2455a3] hover:bg-[#1b4b8a] text-white font-bold text-xs h-9 rounded"
+            >
+              <Link to="/dashboard" className="flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                <span>Return to Dashboard</span>
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="w-full sm:w-auto border-slate-300 text-slate-700 text-xs h-9 rounded"
+            >
+              <Link to="/upload">Upload Courses</Link>
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* VTOP Footer */}
+      <footer className="vtop-footer-gradient text-white py-2 text-center text-[11px] text-white/90 border-t border-[#1b4b8a]">
+        Copyright © 2026 Software Development Cell, VIT, Vellore-632 014.
+      </footer>
     </div>
   );
 };

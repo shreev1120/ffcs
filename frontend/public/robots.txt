@@ -1,14 +1,7 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# robots.txt for VIT FFCS Agent
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /uploads/
+
+Sitemap: http://localhost:5173/sitemap.xml

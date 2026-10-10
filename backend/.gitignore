@@ -1,0 +1,23 @@
+# Environment and Secrets (Item 2 & 13)
+.env
+.env.*
+*.env
+*.secret
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+
+# Uploads and temporary data
+uploads/
+*.xlsx
+*.xls
+*.csv
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/

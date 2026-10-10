@@ -4,7 +4,7 @@ const generatedTimetableSchema = new mongoose.Schema({
     semesterConfigId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'SemesterConfig',
-        required: true
+        required: false
     },
     userId: {
         type: mongoose.Schema.Types.ObjectId,

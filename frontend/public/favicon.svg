@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <!-- VIT Institutional Royal Navy Gradient -->
+    <linearGradient id="vitNavyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" />
+      <stop offset="45%" stop-color="#1b4b8a" />
+      <stop offset="100%" stop-color="#0f2552" />
+    </linearGradient>
+
+    <!-- Academic Imperial Gold Gradient -->
+    <linearGradient id="vitGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="35%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <!-- Morning Slot Gradient (Vibrant Sky to Azure) -->
+    <linearGradient id="morningSlotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+
+    <!-- Evening Slot Gradient (Warm Amber to Orange) -->
+    <linearGradient id="eveningSlotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow for Crest -->
+    <filter id="crestShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3.5" flood-color="#0a1628" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Outer Collegiate Shield Base -->
+  <path d="M 64 6 
+           C 90 6, 114 12, 116 28
+           C 116 70, 92 102, 64 122
+           C 36 102, 12 70, 12 28
+           C 14 12, 38 6, 64 6 Z"
+        fill="url(#vitNavyGrad)" 
+        stroke="url(#vitGoldGrad)" 
+        stroke-width="4.5"
+        stroke-linejoin="round"
+        filter="url(#crestShadow)" />
+
+  <!-- Inner Filigree Shield Border -->
+  <path d="M 64 14 
+           C 85 14, 106 19, 108 32
+           C 108 67, 87 96, 64 113
+           C 41 96, 20 67, 20 32
+           C 22 19, 43 14, 64 14 Z"
+        fill="none" 
+        stroke="#ffffff" 
+        stroke-width="1.25" 
+        stroke-opacity="0.3" />
+
+  <!-- Academic Torch of Knowledge / Star at Apex -->
+  <g transform="translate(64, 27)">
+    <!-- Torch Flame -->
+    <path d="M 0 -11 C 3.5 -6, 5 -2.5, 3.2 1.5 C 1.5 3.5, -1.5 3.5, -3.2 1.5 C -5 -2.5, -3.5 -6, 0 -11 Z" 
+          fill="url(#vitGoldGrad)" />
+    <!-- Flame Core Glow -->
+    <path d="M 0 -7 C 1.5 -4, 2 -2, 1 0.5 C 0 1.5, -1 1.5, -1.5 0.5 C -2 -2, -1.5 -4, 0 -7 Z" 
+          fill="#fef08a" />
+    <!-- Torch Rim -->
+    <path d="M -6 1.5 L 6 1.5 L 4 5 L -4 5 Z" fill="#ffffff" />
+    <!-- Torch Handle -->
+    <path d="M -2.5 5 L 2.5 5 L 1.5 10 L -1.5 10 Z" fill="url(#vitGoldGrad)" />
+  </g>
+
+  <!-- Central Clash-Free Timetable Slot Matrix -->
+  <g transform="translate(36, 42)">
+    <!-- Matrix Plate Container -->
+    <rect x="0" y="0" width="56" height="52" rx="7" 
+          fill="#0c1d3b" fill-opacity="0.6" 
+          stroke="#ffffff" stroke-width="1" stroke-opacity="0.2" />
+
+    <!-- Slot A1 (Morning Theory - Cyan/Azure) -->
+    <rect x="4.5" y="4.5" width="21" height="20" rx="4" fill="url(#morningSlotGrad)" />
+    <text x="15" y="18" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+          font-size="10.5" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-0.5">A1</text>
+
+    <!-- Slot A2 (Evening Theory - Amber/Orange) -->
+    <rect x="30.5" y="4.5" width="21" height="20" rx="4" fill="url(#eveningSlotGrad)" />
+    <text x="41" y="18" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+          font-size="10.5" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-0.5">A2</text>
+
+    <!-- Slot L31 (Morning Shift Labs - Amber/Orange) -->
+    <rect x="4.5" y="28" width="21" height="20" rx="4" fill="url(#eveningSlotGrad)" />
+    <text x="15" y="41.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+          font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">L31</text>
+
+    <!-- Slot L1 (Evening Shift Labs - Cyan/Azure) -->
+    <rect x="30.5" y="28" width="21" height="20" rx="4" fill="url(#morningSlotGrad)" />
+    <text x="41" y="41.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+          font-size="9.5" font-weight="900" fill="#ffffff" text-anchor="middle">L1</text>
+  </g>
+
+  <!-- Banner Across Lower Shield (VTOP FFCS) -->
+  <g transform="translate(64, 107)">
+    <rect x="-35" y="-8.5" width="70" height="16" rx="3.5" 
+          fill="#ffffff" 
+          stroke="url(#vitGoldGrad)" 
+          stroke-width="1.8" />
+    <text x="0" y="3.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+          font-size="9" font-weight="900" fill="#1b4b8a" text-anchor="middle" letter-spacing="1.5">FFCS</text>
+  </g>
+</svg>

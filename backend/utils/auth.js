@@ -1,37 +1,71 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-prod';
+// Item 3 & 26: Strong JWT Secret validation - prevent weak or default secrets in production
+const FALLBACK_DEV_SECRET = 'ffcs_agent_secure_local_development_jwt_secret_key_2026_9941a8';
+const JWT_SECRET = process.env.JWT_SECRET || FALLBACK_DEV_SECRET;
+
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === FALLBACK_DEV_SECRET)) {
+    console.error('FATAL SECURITY ERROR: JWT_SECRET environment variable must be set in production!');
+    process.exit(1);
+}
+
 const JWT_EXPIRES_IN = '7d';
 
+/**
+ * Hash password securely with bcrypt salt
+ * @param {string} password 
+ * @returns {string} bcrypt hash
+ */
 function hashPassword(password) {
+    if (!password || typeof password !== 'string') {
+        throw new Error('Password must be a non-empty string');
+    }
     const salt = bcrypt.genSaltSync(10);
     return bcrypt.hashSync(password, salt);
 }
 
+/**
+ * Verify password against stored bcrypt hash
+ * @param {string} password 
+ * @param {string} storedHash 
+ * @returns {boolean}
+ */
 function verifyPassword(password, storedHash) {
-    if (!password || !storedHash) return false;
-    // Check if storedHash is legacy format (contains colons)
-    if (storedHash.includes(':')) {
-        // Legacy PBKDF2 check - fail or migrate? 
-        // For now, fail safe or log. Since we are moving to bcrypt, 
-        // existing users with old hashes might need reset unless we keep legacy check.
-        // Given constraint "Must support demo.student", we might need to support both or reseeding handles it.
-        // server.js reseeding checked if passwordHash exists.
-        // Let's assume we want to strictly move to bcrypt.
+    if (!password || !storedHash || typeof password !== 'string' || typeof storedHash !== 'string') {
         return false;
     }
-    return bcrypt.compareSync(password, storedHash);
+    // Reject legacy colon-separated hashes or malformed hashes cleanly
+    if (storedHash.includes(':') || !storedHash.startsWith('$2')) {
+        return false;
+    }
+    try {
+        return bcrypt.compareSync(password, storedHash);
+    } catch {
+        return false;
+    }
 }
 
+/**
+ * Create signed JWT session token
+ * @param {string} userId 
+ * @returns {string} JWT token
+ */
 function createSessionToken(userId) {
-    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    if (!userId) throw new Error('User ID required for session token creation');
+    return jwt.sign({ id: String(userId) }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
+/**
+ * Verify and decode JWT session token
+ * @param {string} token 
+ * @returns {object|null} Decoded payload or null
+ */
 function verifySessionToken(token) {
+    if (!token || typeof token !== 'string') return null;
     try {
         return jwt.verify(token, JWT_SECRET);
-    } catch (error) {
+    } catch {
         return null;
     }
 }
