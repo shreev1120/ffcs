@@ -4,7 +4,7 @@
   "description": "VIT FFCS Agent - Full Stack Academic Timetable Optimization",
   "private": true,
   "scripts": {
-    "build": "npm install --prefix frontend && npm run build --prefix frontend && npm install --prefix backend",
+    "build": "npm install --prefix frontend --include=dev && npm run build --prefix frontend && npm install --prefix backend --omit=dev",
     "start": "node backend/server.js"
   },
   "keywords": [
