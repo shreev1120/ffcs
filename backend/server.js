@@ -59,6 +59,7 @@ app.use((req, res, next) => {
 // 2. Strict CORS Configuration (Item 27: Permissive CORS)
 const allowedOrigins = [
     process.env.FRONTEND_URL,
+    process.env.RENDER_EXTERNAL_URL,
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://localhost:5000',
@@ -69,7 +70,7 @@ app.use(cors({
     origin: function (origin, callback) {
         // Allow mobile or server-side non-browser requests with no origin
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
+        if (allowedOrigins.includes(origin) || origin.endsWith('.onrender.com')) {
             return callback(null, true);
         }
         return callback(new Error('Cross-Origin Request Blocked by Security Policy'), false);
