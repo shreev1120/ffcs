@@ -70,7 +70,7 @@ describe("Web Deliverables & UX Enhancements", () => {
 
     expect(screen.getByText(/Student Privacy Commitment/i)).toBeInTheDocument();
     expect(screen.getByText(/Exactly What User Data We Collect/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/ffcs.support@vitstudent.ac.in/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/VIT FFCS Agent Engineering Desk/i)).toBeInTheDocument();
   });
 
   it("Item 16: Renders Terms of Service page with student scope", () => {

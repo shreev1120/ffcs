@@ -161,6 +161,8 @@ const Upload = () => {
             batchPreference: effectiveBatchPreference,
             rankingCriteria: user?.preferences?.rankingCriteria || "balanced",
             maxTimetables: user?.preferences?.maxTimetables || 20,
+            minCredits: 18,
+            maxCredits: 27,
             preferredTheorySlots: user?.preferences?.preferredTheorySlots || [],
             avoidEarlyMorning: user?.preferences?.avoidEarlyMorning || false,
             freeDayPreferred: user?.preferences?.freeDayPreferred || null,

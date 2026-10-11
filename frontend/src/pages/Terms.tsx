@@ -81,9 +81,6 @@ export const Terms = () => {
             <p className="font-semibold text-slate-800 dark:text-slate-200">
               VIT FFCS Agent Project Team • Vellore Institute of Technology, Katpadi Road, Vellore 632014, Tamil Nadu, India.
             </p>
-            <p className="text-[#2455a3] dark:text-blue-400 font-mono mt-1">
-              Email: ffcs.support@vitstudent.ac.in
-            </p>
           </div>
         </div>
       </div>

@@ -139,7 +139,6 @@ export const PrivacyPolicy = () => {
             <div className="p-3.5 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
               <p className="font-bold text-slate-900 dark:text-white">VIT FFCS Agent Engineering Desk</p>
               <p className="text-slate-600 dark:text-slate-400 mt-0.5">Vellore Institute of Technology, Katpadi Road, Vellore - 632014, Tamil Nadu, India</p>
-              <p className="text-[#2455a3] dark:text-blue-400 font-mono mt-1">Email: ffcs.support@vitstudent.ac.in</p>
             </div>
           </div>
         </div>

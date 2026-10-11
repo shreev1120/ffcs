@@ -37,6 +37,18 @@ const semesterConfigSchema = new mongoose.Schema({
             default: 5,
             min: 1,
             max: 20
+        },
+        minCredits: {
+            type: Number,
+            default: 18,
+            min: 1,
+            max: 35
+        },
+        maxCredits: {
+            type: Number,
+            default: 27,
+            min: 1,
+            max: 35
         }
     },
     excelFilePath: {

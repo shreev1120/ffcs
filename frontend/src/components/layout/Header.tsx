@@ -58,14 +58,6 @@ const Header = () => {
               </p>
             </div>
 
-            <Link
-              to="/upload"
-              className="text-xs font-bold px-3 py-1.5 rounded bg-amber-400 hover:bg-amber-300 text-slate-900 transition-colors flex items-center gap-1.5 shadow-sm"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Generate Timetable</span>
-            </Link>
-
             <div className="flex items-center gap-2 pl-2">
               <Link
                 to="/student-account"

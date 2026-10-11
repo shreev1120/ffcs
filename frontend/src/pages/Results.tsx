@@ -1,14 +1,24 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle, Download } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle, Download, Trash2, User, Award } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import SEO from "@/components/common/SEO";
-import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import html2canvas from "html2canvas";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type TimetableEntry = {
   courseCode: string;
@@ -34,7 +44,29 @@ type Timetable = {
   schedule: Record<string, TimetableEntry[]>;
   features?: TimetableFeatures & { batchShift?: string };
   rankingScore?: number;
+  totalCredits?: number;
+  totalCourses?: number;
 };
+
+function getTimetableCredits(item?: Timetable | null): number {
+  if (!item) return 0;
+  if (typeof item.totalCredits === "number" && item.totalCredits > 0) {
+    return item.totalCredits;
+  }
+  if (Array.isArray(item.courses) && item.courses.length > 0) {
+    return item.courses.reduce((sum, c) => sum + (Number(c.credits) || 0), 0);
+  }
+  if (item.schedule) {
+    const seen = new Set<string>();
+    Object.values(item.schedule).forEach((entries) => {
+      entries.forEach((e) => {
+        if (e.courseCode) seen.add(e.courseCode);
+      });
+    });
+    return seen.size * 3;
+  }
+  return 0;
+}
 
 type TimetableData = {
   timetables: Timetable[];
@@ -114,102 +146,102 @@ interface CourseTheme {
 const COURSE_PALETTES: CourseTheme[] = [
   {
     // Sapphire Blue
-    cardBg: "bg-blue-100/95 dark:bg-blue-950/90",
-    border: "border-blue-400 dark:border-blue-600",
+    cardBg: "bg-blue-100/90 dark:bg-blue-950/70",
+    border: "border-blue-400 dark:border-blue-500",
     slotBadge: "bg-blue-600 dark:bg-blue-500 text-white",
     codeText: "text-blue-950 dark:text-blue-100 font-bold",
     titleText: "text-blue-900 dark:text-blue-200",
-    subText: "text-blue-800 dark:text-blue-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-blue-50/90 dark:bg-blue-950/40",
   },
   {
     // Emerald Green
-    cardBg: "bg-emerald-100/95 dark:bg-emerald-950/90",
-    border: "border-emerald-400 dark:border-emerald-600",
+    cardBg: "bg-emerald-100/90 dark:bg-emerald-950/70",
+    border: "border-emerald-400 dark:border-emerald-500",
     slotBadge: "bg-emerald-600 dark:bg-emerald-500 text-white",
     codeText: "text-emerald-950 dark:text-emerald-100 font-bold",
     titleText: "text-emerald-900 dark:text-emerald-200",
-    subText: "text-emerald-800 dark:text-emerald-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-emerald-50/90 dark:bg-emerald-950/40",
   },
   {
     // Purple / Amethyst
-    cardBg: "bg-purple-100/95 dark:bg-purple-950/90",
-    border: "border-purple-400 dark:border-purple-600",
+    cardBg: "bg-purple-100/90 dark:bg-purple-950/70",
+    border: "border-purple-400 dark:border-purple-500",
     slotBadge: "bg-purple-600 dark:bg-purple-500 text-white",
     codeText: "text-purple-950 dark:text-purple-100 font-bold",
     titleText: "text-purple-900 dark:text-purple-200",
-    subText: "text-purple-800 dark:text-purple-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-purple-50/90 dark:bg-purple-950/40",
   },
   {
     // Amber / Marigold
-    cardBg: "bg-amber-100/95 dark:bg-amber-950/90",
-    border: "border-amber-400 dark:border-amber-600",
+    cardBg: "bg-amber-100/90 dark:bg-amber-950/70",
+    border: "border-amber-400 dark:border-amber-500",
     slotBadge: "bg-amber-600 dark:bg-amber-500 text-white",
     codeText: "text-amber-950 dark:text-amber-100 font-bold",
     titleText: "text-amber-900 dark:text-amber-200",
-    subText: "text-amber-800 dark:text-amber-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-amber-50/90 dark:bg-amber-950/40",
   },
   {
     // Rose / Crimson
-    cardBg: "bg-rose-100/95 dark:bg-rose-950/90",
-    border: "border-rose-400 dark:border-rose-600",
+    cardBg: "bg-rose-100/90 dark:bg-rose-950/70",
+    border: "border-rose-400 dark:border-rose-500",
     slotBadge: "bg-rose-600 dark:bg-rose-500 text-white",
     codeText: "text-rose-950 dark:text-rose-100 font-bold",
     titleText: "text-rose-900 dark:text-rose-200",
-    subText: "text-rose-800 dark:text-rose-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-rose-50/90 dark:bg-rose-950/40",
   },
   {
     // Teal / Mint
-    cardBg: "bg-teal-100/95 dark:bg-teal-950/90",
-    border: "border-teal-400 dark:border-teal-600",
+    cardBg: "bg-teal-100/90 dark:bg-teal-950/70",
+    border: "border-teal-400 dark:border-teal-500",
     slotBadge: "bg-teal-600 dark:bg-teal-500 text-white",
     codeText: "text-teal-950 dark:text-teal-100 font-bold",
     titleText: "text-teal-900 dark:text-teal-200",
-    subText: "text-teal-800 dark:text-teal-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-teal-50/90 dark:bg-teal-950/40",
   },
   {
     // Orange / Coral
-    cardBg: "bg-orange-100/95 dark:bg-orange-950/90",
-    border: "border-orange-400 dark:border-orange-600",
+    cardBg: "bg-orange-100/90 dark:bg-orange-950/70",
+    border: "border-orange-400 dark:border-orange-500",
     slotBadge: "bg-orange-600 dark:bg-orange-500 text-white",
     codeText: "text-orange-950 dark:text-orange-100 font-bold",
     titleText: "text-orange-900 dark:text-orange-200",
-    subText: "text-orange-800 dark:text-orange-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-orange-50/90 dark:bg-orange-950/40",
   },
   {
     // Indigo / Iris
-    cardBg: "bg-indigo-100/95 dark:bg-indigo-950/90",
-    border: "border-indigo-400 dark:border-indigo-600",
+    cardBg: "bg-indigo-100/90 dark:bg-indigo-950/70",
+    border: "border-indigo-400 dark:border-indigo-500",
     slotBadge: "bg-indigo-600 dark:bg-indigo-500 text-white",
     codeText: "text-indigo-950 dark:text-indigo-100 font-bold",
     titleText: "text-indigo-900 dark:text-indigo-200",
-    subText: "text-indigo-800 dark:text-indigo-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-indigo-50/90 dark:bg-indigo-950/40",
   },
   {
     // Fuchsia / Magenta
-    cardBg: "bg-fuchsia-100/95 dark:bg-fuchsia-950/90",
-    border: "border-fuchsia-400 dark:border-fuchsia-600",
+    cardBg: "bg-fuchsia-100/90 dark:bg-fuchsia-950/70",
+    border: "border-fuchsia-400 dark:border-fuchsia-500",
     slotBadge: "bg-fuchsia-600 dark:bg-fuchsia-500 text-white",
     codeText: "text-fuchsia-950 dark:text-fuchsia-100 font-bold",
     titleText: "text-fuchsia-900 dark:text-fuchsia-200",
-    subText: "text-fuchsia-800 dark:text-fuchsia-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-fuchsia-50/90 dark:bg-fuchsia-950/40",
   },
   {
     // Cyan / Sky
-    cardBg: "bg-cyan-100/95 dark:bg-cyan-950/90",
-    border: "border-cyan-400 dark:border-cyan-600",
+    cardBg: "bg-cyan-100/90 dark:bg-cyan-950/70",
+    border: "border-cyan-400 dark:border-cyan-500",
     slotBadge: "bg-cyan-600 dark:bg-cyan-500 text-white",
     codeText: "text-cyan-950 dark:text-cyan-100 font-bold",
     titleText: "text-cyan-900 dark:text-cyan-200",
-    subText: "text-cyan-800 dark:text-cyan-300",
+    subText: "text-slate-900 dark:text-slate-100 font-semibold",
     tdBg: "bg-cyan-50/90 dark:bg-cyan-950/40",
   },
 ];
@@ -261,13 +293,21 @@ const Results = () => {
   const [page, setPage] = useState(1);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [downloading, setDownloading] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const timetableCardRef = useRef<HTMLDivElement>(null);
+  const initialFetchAttempted = useRef(false);
   const { toast } = useToast();
 
-  // If timetable data is not yet in state, fetch the latest saved timetables from the user's account
+  // If timetable data is not yet in state, fetch the latest saved timetables from the user's account once on mount
   useEffect(() => {
-    if (timetableData && timetableData.timetables?.length) return;
+    if (initialFetchAttempted.current) return;
+    if (timetableData && timetableData.timetables?.length) {
+      initialFetchAttempted.current = true;
+      return;
+    }
 
+    initialFetchAttempted.current = true;
     let isMounted = true;
     apiRequest<{ timetables: any[]; timetablesCount: number }>("/timetable/my/latest")
       .then((res) => {
@@ -288,7 +328,7 @@ const Results = () => {
     return () => {
       isMounted = false;
     };
-  }, [timetableData]);
+  }, []);
 
   const detectTimetableShift = (tt: Timetable): "Morning" | "Evening" => {
     if (tt.batch === "Morning" || tt.batch === "Evening") return tt.batch;
@@ -330,39 +370,176 @@ const Results = () => {
     return Array.from(map.values());
   }, [selectedTimetable]);
 
+  const handleDeleteCombination = async (timetableId: string, optionNumber: number) => {
+    const currentList = timetableData?.timetables || [];
+    const updatedList = currentList.filter((t) => t.timetableId !== timetableId);
+    const updatedData: TimetableData = {
+      timetables: updatedList,
+      timetablesCount: updatedList.length,
+    };
+
+    setTimetableData(updatedData);
+    if (updatedList.length === 0) {
+      try {
+        localStorage.removeItem("vtop_ffcs_latest_timetable");
+      } catch {}
+    } else {
+      try {
+        localStorage.setItem("vtop_ffcs_latest_timetable", JSON.stringify(updatedData));
+      } catch {}
+    }
+
+    // Adjust selected index if it was pointing to an index that no longer exists
+    if (selectedIndex >= updatedList.length) {
+      setSelectedIndex(Math.max(0, updatedList.length - 1));
+    }
+
+    toast({
+      title: "Combination Deleted",
+      description: `Option ${optionNumber} has been removed.`,
+    });
+
+    try {
+      await apiRequest(`/timetable/option/${encodeURIComponent(timetableId)}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.warn("Could not sync deletion with server:", err);
+    }
+  };
+
+  const confirmClearAllSchedules = async () => {
+    setClearing(true);
+    const emptyData: TimetableData = { timetables: [], timetablesCount: 0 };
+    setTimetableData(emptyData);
+    try {
+      localStorage.removeItem("vtop_ffcs_latest_timetable");
+      localStorage.removeItem("vtop_ffcs_selected_batch");
+    } catch {}
+    setSelectedIndex(0);
+
+    toast({
+      title: "All Schedules Cleared",
+      description: "You can now upload a fresh course registration sheet.",
+    });
+
+    try {
+      await apiRequest("/timetable/my/all", { method: "DELETE" });
+    } catch (err) {
+      console.warn("Could not sync clear all with server:", err);
+    } finally {
+      setClearing(false);
+      setClearDialogOpen(false);
+    }
+  };
+
   const handleDownloadImage = async () => {
     if (!timetableCardRef.current) return;
     setDownloading(true);
     try {
       const targetElement = timetableCardRef.current;
-      const scrollableDiv = targetElement.querySelector(".overflow-x-auto") as HTMLElement | null;
-      const originalOverflow = scrollableDiv ? scrollableDiv.style.overflow : "";
-      if (scrollableDiv) {
-        scrollableDiv.style.overflow = "visible";
-      }
+      const tableElement = targetElement.querySelector("table") as HTMLElement | null;
+
+      // Generous export width so all 15 columns have wide, uncompressed slot boxes
+      const tableWidth = Math.max(
+        tableElement?.scrollWidth || 0,
+        tableElement?.offsetWidth || 0,
+        1800
+      );
+      const exportWidth = tableWidth + 60;
 
       const canvas = await html2canvas(targetElement, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: document.documentElement.classList.contains("dark") ? "#0f172a" : "#ffffff",
-        windowWidth: 1400,
+        width: exportWidth,
+        windowWidth: exportWidth + 100,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          const clonedCard = clonedDoc.querySelector("[data-timetable-card]") as HTMLElement | null;
+          if (clonedCard) {
+            clonedCard.style.width = `${exportWidth}px`;
+            clonedCard.style.minWidth = `${exportWidth}px`;
+            clonedCard.style.maxWidth = "none";
+          }
+          const clonedScrollable = clonedCard?.querySelector(".overflow-x-auto") as HTMLElement | null;
+          if (clonedScrollable) {
+            clonedScrollable.style.overflow = "visible";
+            clonedScrollable.style.width = `${tableWidth}px`;
+          }
+
+          const clonedTable = clonedCard?.querySelector("table") as HTMLElement | null;
+          if (clonedTable) {
+            clonedTable.style.width = `${tableWidth}px`;
+            clonedTable.style.minWidth = `${tableWidth}px`;
+            clonedTable.style.tableLayout = "fixed";
+          }
+
+          // Ensure every cell has plenty of width and zero overflow clipping
+          clonedCard?.querySelectorAll("th, td").forEach((cell) => {
+            const cellEl = cell as HTMLElement;
+            cellEl.style.overflow = "visible";
+            cellEl.style.verticalAlign = "top";
+          });
+
+          // Style all cards for maximum crispness and readable layout
+          clonedCard?.querySelectorAll("[data-slot-card]").forEach((node) => {
+            const cardEl = node as HTMLElement;
+            cardEl.style.fontFamily = "Arial, Helvetica, sans-serif";
+            cardEl.style.minHeight = "96px";
+            cardEl.style.height = "auto";
+            cardEl.style.padding = "8px 8px 10px 8px";
+            cardEl.style.display = "flex";
+            cardEl.style.flexDirection = "column";
+            cardEl.style.justifyContent = "space-between";
+            cardEl.style.overflow = "visible";
+            cardEl.style.boxSizing = "border-box";
+          });
+
+          // Style all faculty names so they NEVER clip, smudge or wrap onto card borders
+          clonedCard?.querySelectorAll("[data-faculty-text]").forEach((node) => {
+            const facultyEl = node as HTMLElement;
+            facultyEl.style.fontSize = "10.5px";
+            facultyEl.style.fontWeight = "600";
+            facultyEl.style.lineHeight = "14px";
+            facultyEl.style.whiteSpace = "normal";
+            facultyEl.style.overflow = "visible";
+            facultyEl.style.wordBreak = "break-word";
+            facultyEl.style.marginTop = "6px";
+            facultyEl.style.paddingBottom = "2px";
+          });
+
+          // Style course codes
+          clonedCard?.querySelectorAll("[data-course-code]").forEach((node) => {
+            const codeEl = node as HTMLElement;
+            codeEl.style.fontSize = "12px";
+            codeEl.style.fontWeight = "bold";
+            codeEl.style.lineHeight = "15px";
+            codeEl.style.letterSpacing = "0.2px";
+          });
+        },
       });
 
-      if (scrollableDiv) {
-        scrollableDiv.style.overflow = originalOverflow;
-      }
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          throw new Error("Canvas could not generate image blob");
+        }
+        const blobUrl = URL.createObjectURL(blob);
+        const downloadLink = document.createElement("a");
+        downloadLink.download = `VIT_Timetable_Option_${selectedIndex + 1}.png`;
+        downloadLink.href = blobUrl;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
 
-      const dataUrl = canvas.toDataURL("image/png");
-      const downloadLink = document.createElement("a");
-      downloadLink.download = `VIT_Timetable_Option_${selectedIndex + 1}.png`;
-      downloadLink.href = dataUrl;
-      downloadLink.click();
-
-      toast({
-        title: "Timetable Downloaded",
-        description: `Combination ${selectedIndex + 1} exported successfully as PNG image.`,
-      });
+        toast({
+          title: "Timetable Downloaded",
+          description: `Option ${selectedIndex + 1} schedule exported successfully with crystal-clear text.`,
+        });
+      }, "image/png");
     } catch (err) {
       console.error("Failed to export timetable as image:", err);
       toast({
@@ -405,38 +582,53 @@ const Results = () => {
 
     if (!hasCourse) {
       return (
-        <div className="leading-tight text-slate-400 dark:text-slate-500 font-mono text-[11px] text-center py-2.5">
+        <div className="leading-tight text-slate-400 dark:text-slate-500 font-mono text-[11px] text-center py-3 select-none">
           {templateLabel || "-"}
         </div>
       );
     }
 
     return (
-      <div className="space-y-1.5 leading-tight text-xs">
+      <div className="space-y-1.5 leading-normal text-xs">
         {[theory, lab].filter(Boolean).map((entry, idx) => {
           const theme = getCourseTheme(entry?.courseCode);
+          const hasDistinctTitle = Boolean(
+            entry?.courseName &&
+            entry.courseName.trim().toUpperCase() !== entry?.courseCode?.trim().toUpperCase()
+          );
+
           return (
             <div
               key={`${entry?.slot || "slot"}-${entry?.courseCode || "code"}-${idx}`}
-              className={`p-2 rounded-md ${theme.cardBg} border-2 ${theme.border} shadow-sm transition-all hover:shadow-md`}
+              data-slot-card="true"
+              className={`p-2 rounded-md ${theme.cardBg} border-2 ${theme.border} shadow-sm transition-all flex flex-col justify-between min-h-[92px]`}
             >
-              <div className="flex items-center justify-between gap-1 mb-1">
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide uppercase ${theme.slotBadge}`}>
-                  {entry?.slot || "-"}
-                </span>
-                <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">
-                  {entry?.venue || "-"}
-                </span>
-              </div>
-              <div className={`font-bold text-xs ${theme.codeText}`}>
-                {entry?.courseCode || "-"}
-              </div>
-              <div className={`text-[11px] font-medium leading-snug line-clamp-2 ${theme.titleText}`} title={entry?.courseName}>
-                {entry?.courseName || "-"}
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-tight leading-none ${theme.slotBadge}`}>
+                    {entry?.slot || "-"}
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300">
+                    {entry?.venue || "-"}
+                  </span>
+                </div>
+                <div data-course-code="true" className={`font-bold text-xs leading-snug tracking-tight ${theme.codeText}`}>
+                  {entry?.courseCode || "-"}
+                </div>
+                {hasDistinctTitle && (
+                  <div data-course-title="true" className={`text-[11px] font-medium leading-snug mt-0.5 ${theme.titleText}`} title={entry?.courseName}>
+                    {entry?.courseName}
+                  </div>
+                )}
               </div>
               {entry?.faculty && (
-                <div className={`text-[10px] mt-1 font-medium truncate ${theme.subText}`} title={entry?.faculty}>
-                  👤 {entry?.faculty}
+                <div
+                  data-faculty-text="true"
+                  className={`text-[10px] mt-2 font-semibold leading-tight break-words flex items-center gap-1 ${theme.subText}`}
+                  title={entry?.faculty}
+                >
+                  <User className="w-3 h-3 shrink-0" />
+                  <span>{entry?.faculty}</span>
                 </div>
               )}
             </div>
@@ -488,9 +680,39 @@ const Results = () => {
               All permutations adhere strictly to VIT theory and laboratory slot separation rules with zero clashes.
             </p>
           </div>
-          <Button asChild variant="outline" className="border-[#2455a3] dark:border-blue-500 text-[#2455a3] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 text-xs rounded shrink-0">
-            <Link to="/thank-you">View Confirmation Summary →</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={clearing}
+                  className="border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs rounded shrink-0 flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{clearing ? "Clearing..." : "Clear All"}</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Clear All Timetable Schedules?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-xs text-slate-600 dark:text-slate-400">
+                    This will remove all generated schedule combinations from your account so you can start fresh for the next semester. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="text-xs">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={confirmClearAllSchedules}
+                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs"
+                  >
+                    Yes, Clear All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
 
@@ -566,15 +788,36 @@ const Results = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
-                <div className="flex items-center gap-1.5">
-                  <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Free Days: {item.features?.totalFreeDays ?? 0}</span>
+              <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Free Days: {item.features?.totalFreeDays ?? 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Starts: {item.features?.earliestStartTime || item.features?.latestStartTime || "--"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-bold text-blue-700 dark:text-blue-400">
+                    <Award className="w-3.5 h-3.5" />
+                    <span>{getTimetableCredits(item)} / 27 Cr</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Starts: {item.features?.earliestStartTime || item.features?.latestStartTime || "--"}</span>
-                </div>
+
+                {/* Small Delete Button in bottom-right corner as requested */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteCombination(item.timetableId, globalIndex);
+                  }}
+                  title={`Delete Combination ${globalIndex}`}
+                  aria-label={`Delete Combination ${globalIndex}`}
+                  className="px-2 py-1 rounded text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 transition-colors flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
               </div>
             </div>
           );
@@ -610,7 +853,7 @@ const Results = () => {
 
       {/* Detailed VTOP Weekly Slot Table */}
       {selectedTimetable && (
-        <div ref={timetableCardRef} className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 mb-8">
+        <div ref={timetableCardRef} data-timetable-card="true" className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -624,7 +867,12 @@ const Results = () => {
                 {" "}• {detectTimetableShift(selectedTimetable) === "Morning" ? "Theory 08:00 - 13:00 (A1 series) & Labs 14:00 - 19:30 (L31 to L60)" : "Labs 08:00 - 13:20 (L1 to L30) & Theory 14:00 - 19:00 (A2 series)"}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 px-2.5 py-1 rounded border border-blue-200 dark:border-blue-800 font-semibold flex items-center gap-1">
+                <Award className="w-3.5 h-3.5" />
+                <span>{getTimetableCredits(selectedTimetable)} Credits (18–27 Range)</span>
+              </span>
+
               <span className="text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded border border-emerald-200 dark:border-emerald-800 font-semibold flex items-center gap-1">
                 <CheckCircle className="w-3.5 h-3.5" />
                 <span>100% Conflict-Free</span>
@@ -644,15 +892,15 @@ const Results = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-[1300px] w-full border-collapse text-xs border border-slate-300 dark:border-slate-800">
+            <table className="min-w-[1550px] w-full border-collapse text-xs border border-slate-300 dark:border-slate-800">
               <tbody>
                 {/* Theory Hours Header Row */}
                 <tr>
-                  <th className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-bold p-2 text-center min-w-[90px]">
+                  <th className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-bold p-2 text-center min-w-[100px]">
                     THEORY HOURS
                   </th>
                   {MORNING_COLUMNS.map((col) => (
-                    <th key={`th-m-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-semibold p-2 min-w-[95px] text-center">
+                    <th key={`th-m-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-semibold p-2 min-w-[115px] sm:min-w-[125px] text-center">
                       {col.theory ? (
                         <div className="leading-tight text-[11px]">
                           <div>{col.theory.start}</div>
@@ -666,7 +914,7 @@ const Results = () => {
                     LUNCH
                   </th>
                   {EVENING_COLUMNS.map((col) => (
-                    <th key={`th-e-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-semibold p-2 min-w-[95px] text-center">
+                    <th key={`th-e-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-semibold p-2 min-w-[115px] sm:min-w-[125px] text-center">
                       {col.theory ? (
                         <div className="leading-tight text-[11px]">
                           <div>{col.theory.start}</div>
@@ -680,11 +928,11 @@ const Results = () => {
 
                 {/* Lab Hours Header Row */}
                 <tr>
-                  <th className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-bold p-2 text-center">
+                  <th className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-bold p-2 text-center min-w-[100px]">
                     LAB HOURS
                   </th>
                   {MORNING_COLUMNS.map((col) => (
-                    <th key={`lh-m-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-semibold p-2 min-w-[95px] text-center">
+                    <th key={`lh-m-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-semibold p-2 min-w-[115px] sm:min-w-[125px] text-center">
                       <div className="leading-tight text-[11px]">
                         <div>{col.lab.start}</div>
                         <div>to</div>
@@ -693,7 +941,7 @@ const Results = () => {
                     </th>
                   ))}
                   {EVENING_COLUMNS.map((col) => (
-                    <th key={`lh-e-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-semibold p-2 min-w-[95px] text-center">
+                    <th key={`lh-e-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-semibold p-2 min-w-[115px] sm:min-w-[125px] text-center">
                       <div className="leading-tight text-[11px]">
                         <div>{col.lab.start}</div>
                         <div>to</div>
@@ -706,7 +954,7 @@ const Results = () => {
                 {/* Day Rows */}
                 {WEEK_DAYS.map((day, dayIdx) => (
                   <tr key={day} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                    <th className="border border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold p-2 text-center">
+                    <th className="border border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold p-2 text-center min-w-[80px]">
                       {DAY_SHORT[day]}
                     </th>
                     {MORNING_COLUMNS.map((col, colIdx) => {
@@ -718,7 +966,7 @@ const Results = () => {
                       return (
                         <td
                           key={`${day}-m-${col.key}`}
-                          className={`border border-slate-300 dark:border-slate-800 p-1.5 align-top transition-colors ${
+                          className={`border border-slate-300 dark:border-slate-800 p-1.5 align-top transition-colors min-w-[115px] sm:min-w-[125px] ${
                             hasCourse
                               ? (cellTheme?.tdBg || "bg-blue-50/90 dark:bg-blue-950/40")
                               : "bg-slate-50/60 dark:bg-slate-900/60"
@@ -749,7 +997,7 @@ const Results = () => {
                       return (
                         <td
                           key={`${day}-e-${col.key}`}
-                          className={`border border-slate-300 dark:border-slate-800 p-1.5 align-top transition-colors ${
+                          className={`border border-slate-300 dark:border-slate-800 p-1.5 align-top transition-colors min-w-[115px] sm:min-w-[125px] ${
                             hasCourse
                               ? (cellTheme?.tdBg || "bg-blue-50/90 dark:bg-blue-950/40")
                               : "bg-slate-50/60 dark:bg-slate-900/60"
@@ -777,6 +1025,9 @@ const Results = () => {
               <div className="flex flex-wrap items-center gap-2">
                 {uniqueCourses.map((c) => {
                   const theme = getCourseTheme(c.code);
+                  const hasDistinctTitle = Boolean(
+                    c.name && c.name.trim().toUpperCase() !== c.code.trim().toUpperCase()
+                  );
                   return (
                     <div
                       key={c.code}
@@ -784,7 +1035,7 @@ const Results = () => {
                     >
                       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${theme.slotBadge}`} />
                       <span className={`font-bold ${theme.codeText}`}>{c.code}</span>
-                      {c.name && (
+                      {hasDistinctTitle && (
                         <span className={`text-[11px] truncate max-w-[200px] ${theme.titleText}`}>
                           - {c.name}
                         </span>

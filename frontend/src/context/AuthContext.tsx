@@ -20,7 +20,13 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   login: (vitEmail: string, password: string) => Promise<void>;
-  signup: (vitEmail: string, password: string, confirmPassword: string) => Promise<void>;
+  signup: (
+    vitEmail: string,
+    password: string,
+    confirmPassword: string,
+    name?: string,
+    registrationNumber?: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateProfile: (payload: Partial<AuthUser>) => Promise<void>;
@@ -57,12 +63,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(data.user);
   }, []);
 
-  const signup = useCallback(async (vitEmail: string, password: string, confirmPassword: string) => {
-    await apiRequest<{ message: string }>("/signup", {
-      method: "POST",
-      body: { vitEmail, password, confirmPassword },
-    });
-  }, []);
+  const signup = useCallback(
+    async (
+      vitEmail: string,
+      password: string,
+      confirmPassword: string,
+      name?: string,
+      registrationNumber?: string
+    ) => {
+      const data = await apiRequest<{ message: string; user?: AuthUser }>("/signup", {
+        method: "POST",
+        body: { vitEmail, password, confirmPassword, name, registrationNumber },
+      });
+      if (data?.user) {
+        setUser(data.user);
+      }
+    },
+    []
+  );
 
   const logout = useCallback(async () => {
     try {

@@ -18,6 +18,7 @@ const Signup = () => {
   const [vitEmail, setVitEmail] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreeDataProcessing, setAgreeDataProcessing] = useState(false);
   const [honeypot, setHoneypot] = useState("");
@@ -28,6 +29,7 @@ const Signup = () => {
   const isEmailValid = vitEmailRegex.test(vitEmail.trim());
   const isRegValid = registrationNumber.trim().length >= 6;
   const isPasswordValid = password.length >= 6;
+  const isConfirmPasswordValid = confirmPassword.length >= 6 && confirmPassword === password;
   const isNameValid = name.trim().length >= 2;
 
   const isFormValid =
@@ -35,6 +37,7 @@ const Signup = () => {
     isEmailValid &&
     isRegValid &&
     isPasswordValid &&
+    isConfirmPasswordValid &&
     agreeTerms &&
     agreeDataProcessing;
 
@@ -47,6 +50,9 @@ const Signup = () => {
     }
     if (password && !isPasswordValid) {
       return "Password must be at least 6 characters long.";
+    }
+    if (confirmPassword && password !== confirmPassword) {
+      return "Password and confirm password do not match.";
     }
     if (!agreeTerms || !agreeDataProcessing) {
       return "Please check both consent boxes to proceed.";
@@ -69,6 +75,11 @@ const Signup = () => {
       return;
     }
 
+    if (password !== confirmPassword) {
+      setServerError("Password and confirm password do not match.");
+      return;
+    }
+
     if (!isFormValid) {
       setServerError(validationError || "Please satisfy all required fields.");
       return;
@@ -76,7 +87,13 @@ const Signup = () => {
 
     setSubmitting(true);
     try {
-      await signup(vitEmail, password, name, registrationNumber.toUpperCase().trim());
+      await signup(
+        vitEmail.trim().toLowerCase(),
+        password,
+        confirmPassword,
+        name.trim(),
+        registrationNumber.toUpperCase().trim()
+      );
       toast({
         title: "Account created!",
         description: "Welcome to VIT FFCS Portal. You are now logged in.",
@@ -239,7 +256,7 @@ const Signup = () => {
               <div className="space-y-1">
                 <label
                   htmlFor="password"
-                  className="text-xs font-bold uppercase tracking-wider text-slate-700 block"
+                  className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block"
                 >
                   Password (min 6 characters)
                 </label>
@@ -255,14 +272,49 @@ const Signup = () => {
                     type="password"
                     required
                     aria-required="true"
-                    className="pl-9 h-9 text-xs rounded border-slate-300 focus-visible:ring-[#2455a3]"
+                    className="pl-9 h-9 text-xs rounded border-slate-300 dark:border-slate-700 focus-visible:ring-[#2455a3]"
                     placeholder="••••••••"
                   />
                 </div>
               </div>
 
+              {/* Confirm Password */}
+              <div className="space-y-1">
+                <label
+                  htmlFor="confirm-password"
+                  className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block"
+                >
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Input
+                    id="confirm-password"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setServerError(null);
+                    }}
+                    type="password"
+                    required
+                    aria-required="true"
+                    className={`pl-9 h-9 text-xs rounded border-slate-300 dark:border-slate-700 focus-visible:ring-[#2455a3] ${
+                      confirmPassword && password !== confirmPassword
+                        ? "border-red-400 focus-visible:ring-red-400"
+                        : ""
+                    }`}
+                    placeholder="••••••••"
+                  />
+                </div>
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400 font-medium mt-1">
+                    Password and confirm password do not match.
+                  </p>
+                )}
+              </div>
+
               {/* Checkboxes */}
-              <div className="space-y-2 pt-2 text-xs text-slate-600 border-t border-slate-200">
+              <div className="space-y-2 pt-2 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800">
                 <label className="flex items-start gap-2 cursor-pointer select-none">
                   <input
                     id="agree-terms"

@@ -75,13 +75,9 @@ export const RefundPolicy = () => {
               While monetary refunds do not exist, we are deeply committed to algorithmic precision:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-400">
-              <li>If an Excel parsing edge-case occurs, email your sanitized sheet format to our engineering desk.</li>
+              <li>If an Excel parsing edge-case occurs, share your sanitized sheet format with our engineering desk.</li>
               <li>Our student developers actively release fixes within 24 to 48 hours during peak course registration cycles.</li>
             </ul>
-            <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800">
-              <p className="font-semibold text-slate-800 dark:text-slate-200">Support Desk Contact:</p>
-              <p className="text-[#2455a3] dark:text-blue-400 font-mono mt-0.5">ffcs.support@vitstudent.ac.in</p>
-            </div>
           </div>
         </div>
       </div>

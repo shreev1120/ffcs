@@ -9,7 +9,7 @@ const activityLogSchema = new mongoose.Schema({
     action: {
         type: String,
         required: true,
-        enum: ['Signed Up', 'Logged In', 'Schedule Generated', 'Preferences Updated', 'Course Added', 'Profile Updated', 'Password Updated', 'Logged Out']
+        enum: ['Signed Up', 'Logged In', 'Schedule Generated', 'Preferences Updated', 'Course Added', 'Profile Updated', 'Password Updated', 'Logged Out', 'Timetable Option Deleted', 'All Timetables Cleared']
     },
     details: {
         type: String,

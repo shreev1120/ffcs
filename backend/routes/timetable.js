@@ -85,12 +85,6 @@ async function resolveUserId(req) {
         const existing = await User.findById(req.body.userId);
         if (existing) return existing._id;
     }
-    if (process.env.NODE_ENV !== 'production') {
-        const demoUser = await User.findOne({
-            vitEmail: { $in: ['demo.student@vitstudent.ac.in', 'student@vitstudent.ac.in'] }
-        });
-        if (demoUser) return demoUser._id;
-    }
     return null;
 }
 
@@ -274,6 +268,8 @@ router.post('/generate', optionalAuth, async (req, res) => {
             batchPreference: preferences?.batchPreference || semesterConfig?.preferences?.batchPreference || userPrefs.batchPreference || 'Morning',
             rankingCriteria: preferences?.rankingCriteria || semesterConfig?.preferences?.rankingCriteria || userPrefs.rankingCriteria || 'balanced',
             maxTimetables: Number(preferences?.maxTimetables || semesterConfig?.preferences?.maxTimetables || userPrefs.maxTimetables || 20),
+            minCredits: preferences?.minCredits !== undefined ? Number(preferences.minCredits) : (semesterConfig?.preferences?.minCredits ?? userPrefs.minCredits ?? 18),
+            maxCredits: preferences?.maxCredits !== undefined ? Number(preferences.maxCredits) : (semesterConfig?.preferences?.maxCredits ?? userPrefs.maxCredits ?? 27),
             avoidEarlyMorning: preferences?.avoidEarlyMorning ?? userPrefs.avoidEarlyMorning ?? false,
             freeDayPreferred: preferences?.freeDayPreferred || userPrefs.freeDayPreferred || null,
             preferredTheorySlots: preferences?.preferredTheorySlots || userPrefs.preferredTheorySlots || []
@@ -281,6 +277,27 @@ router.post('/generate', optionalAuth, async (req, res) => {
 
         if (!['Morning', 'Evening', 'Both'].includes(effectivePreferences.batchPreference)) {
             effectivePreferences.batchPreference = 'Morning';
+        }
+
+        // Validate that uploaded courses have at least minCredits total across unique subjects
+        const uniqueCoursesMap = new Map();
+        coursesData.forEach(c => {
+            const key = `${c.courseCode}::${c.courseType || 'Theory'}`;
+            if (!uniqueCoursesMap.has(key)) {
+                uniqueCoursesMap.set(key, Number(c.credits) || 3);
+            }
+        });
+        const totalUniqueCourseCredits = [...uniqueCoursesMap.values()].reduce((sum, cr) => sum + cr, 0);
+
+        if (totalUniqueCourseCredits < effectivePreferences.minCredits) {
+            if (semesterConfig) {
+                semesterConfig.status = 'failed';
+                await semesterConfig.save();
+            }
+            return res.status(400).json({
+                error: 'Insufficient course credits',
+                message: `The total available credits for the uploaded courses is only ${totalUniqueCourseCredits}, which is below the minimum required ${effectivePreferences.minCredits} credits for VIT FFCS registration.`
+            });
         }
 
         if (semesterConfig) {
@@ -302,7 +319,7 @@ router.post('/generate', optionalAuth, async (req, res) => {
                 }
                 return res.status(400).json({
                     error: 'No valid timetables could be generated',
-                    message: `No timetable variants could be created for ${effectivePreferences.batchPreference} preference.`
+                    message: `No timetable variants could be created satisfying the ${effectivePreferences.minCredits}–${effectivePreferences.maxCredits} credit range for ${effectivePreferences.batchPreference} preference.`
                 });
             }
         }
@@ -314,6 +331,8 @@ router.post('/generate', optionalAuth, async (req, res) => {
                 timetableId: tt.timetableId,
                 schedule: tt.schedule,
                 features: tt.features,
+                totalCredits: tt.totalCredits,
+                totalCourses: tt.totalCourses,
                 rank: tt.rank || (index + 1),
                 rankingScore: tt.rankingScore || 0
             }))
@@ -494,6 +513,91 @@ router.delete('/config/:semesterConfigId', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Delete error:', error);
         res.status(500).json({ error: 'Failed to delete configuration' });
+    }
+});
+
+/**
+ * DELETE /api/timetable/option/:timetableId
+ * Delete a specific timetable combination for the authenticated user
+ */
+router.delete('/option/:timetableId', optionalAuth, async (req, res) => {
+    try {
+        const { timetableId } = req.params;
+        const userId = await resolveUserId(req);
+
+        if (!userId) {
+            return res.status(401).json({ error: 'Authentication required. Please sign in.' });
+        }
+
+        if (!timetableId) {
+            return res.status(400).json({ error: 'Timetable ID is required' });
+        }
+
+        // Pull timetable combination from all documents belonging to this user
+        const result = await GeneratedTimetable.updateMany(
+            { userId, 'timetables.timetableId': timetableId },
+            { $pull: { timetables: { timetableId } } }
+        );
+
+        // Also check if any GeneratedTimetable is now empty and can be cleaned up
+        const emptyDocs = await GeneratedTimetable.find({ userId, timetables: { $size: 0 } });
+        if (emptyDocs.length > 0) {
+            await GeneratedTimetable.deleteMany({ _id: { $in: emptyDocs.map(d => d._id) } });
+        }
+
+        try {
+            await ActivityLog.create({
+                userId,
+                action: 'Timetable Option Deleted',
+                details: `Option ${timetableId} deleted by user`,
+                metadata: { timetableId: String(timetableId) }
+            });
+        } catch (logErr) {
+            console.warn('Activity log error:', logErr.message);
+        }
+
+        res.json({
+            message: 'Timetable combination deleted successfully',
+            timetableId
+        });
+    } catch (error) {
+        console.error('Delete combination error:', error);
+        res.status(500).json({ error: 'Failed to delete timetable combination' });
+    }
+});
+
+/**
+ * DELETE /api/timetable/my/all
+ * Clear all generated and saved timetables for the authenticated user
+ */
+router.delete('/my/all', optionalAuth, async (req, res) => {
+    try {
+        const userId = await resolveUserId(req);
+
+        if (!userId) {
+            return res.status(401).json({ error: 'Authentication required. Please sign in.' });
+        }
+
+        const deleteCount = await GeneratedTimetable.deleteMany({ userId });
+
+        try {
+            await ActivityLog.create({
+                userId,
+                action: 'All Timetables Cleared',
+                details: `User cleared all saved schedule permutations (${deleteCount.deletedCount || 0} records removed)`,
+                metadata: { count: String(deleteCount.deletedCount || 0) }
+            });
+        } catch (logErr) {
+            console.warn('Activity log error:', logErr.message);
+        }
+
+        res.json({
+            message: 'All timetable combinations cleared successfully',
+            deletedCount: deleteCount.deletedCount
+        });
+    } catch (error) {
+        console.error('Clear all schedules error:', error);
+        res.status(500).json({ error: 'Failed to clear timetables' });
     }
 });
 

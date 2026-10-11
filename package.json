@@ -1,0 +1,17 @@
+{
+  "name": "vit-ffcs-agent",
+  "version": "1.0.0",
+  "description": "VIT FFCS Agent - Full Stack Academic Timetable Optimization",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --prefix frontend && npm install --prefix backend",
+    "start": "node backend/server.js"
+  },
+  "keywords": [
+    "vit",
+    "ffcs",
+    "timetable"
+  ],
+  "author": "",
+  "license": "MIT"
+}

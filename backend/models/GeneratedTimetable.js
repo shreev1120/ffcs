@@ -46,6 +46,12 @@ const generatedTimetableSchema = new mongoose.Schema({
         },
         rank: {
             type: Number
+        },
+        totalCredits: {
+            type: Number
+        },
+        totalCourses: {
+            type: Number
         }
     }],
     selectedTimetableId: {

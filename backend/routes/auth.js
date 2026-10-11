@@ -80,9 +80,9 @@ router.post('/signup', async (req, res) => {
             return res.status(400).json({ error: 'Use a valid VIT email address (@vitstudent.ac.in).' });
         }
 
-        if (!STRONG_PASSWORD_REGEX.test(password)) {
+        if (!password || password.length < 6) {
             return res.status(400).json({
-                error: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
+                error: 'Password must be at least 6 characters long.'
             });
         }
 

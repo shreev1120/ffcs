@@ -139,7 +139,9 @@ function generateTimetables(courses, preferences = {}) {
 function generateCombinations(courses, preferences = {}) {
     const {
         batchPreference = 'Morning',
-        maxTimetables = 50
+        maxTimetables = 50,
+        minCredits = 18,
+        maxCredits = 27
     } = preferences;
 
     if (!Array.isArray(courses) || courses.length === 0) {
@@ -156,12 +158,16 @@ function generateCombinations(courses, preferences = {}) {
         const morningCombos = generateCombinations(courses, {
             ...preferences,
             batchPreference: 'Morning',
-            maxTimetables: half
+            maxTimetables: half,
+            minCredits,
+            maxCredits
         });
         const eveningCombos = generateCombinations(courses, {
             ...preferences,
             batchPreference: 'Evening',
-            maxTimetables: half
+            maxTimetables: half,
+            minCredits,
+            maxCredits
         });
         return [...morningCombos, ...eveningCombos];
     }
@@ -170,18 +176,38 @@ function generateCombinations(courses, preferences = {}) {
     if (optionGroups.length === 0) {
         return [];
     }
+
+    // Branch & Bound precomputations for credit limits:
+    const groupMaxCredits = optionGroups.map((g) =>
+        Math.max(0, ...(g.options || []).map((o) => (o.credits !== undefined && !isNaN(Number(o.credits)) ? Number(o.credits) : 3)))
+    );
+    const suffixMaxCredits = new Array(optionGroups.length + 1).fill(0);
+    for (let i = optionGroups.length - 1; i >= 0; i--) {
+        suffixMaxCredits[i] = suffixMaxCredits[i + 1] + groupMaxCredits[i];
+    }
+
+    // If total possible credits across all available courses is less than minimum credits,
+    // no combination can ever reach minCredits.
+    if (suffixMaxCredits[0] < minCredits) {
+        return [];
+    }
+
     const constrainedFamilies = buildFacultyConstraintFamilies(optionGroups);
 
+    // Strict mode: requires picking one option from every course group
     const strictCombinations = [];
     backtrackOptionGroups(
         optionGroups,
         0,
         [],
+        0,
         strictCombinations,
         maxTimetables,
         constrainedFamilies,
         new Map(),
-        batchPreference
+        batchPreference,
+        minCredits,
+        maxCredits
     );
     if (strictCombinations.length > 0) {
         return strictCombinations.map((courses) => ({
@@ -191,6 +217,7 @@ function generateCombinations(courses, preferences = {}) {
         }));
     }
 
+    // Relaxed mode: skips unavoidable clashes and/or selects valid subsets within [minCredits, maxCredits]
     const relaxedCombinations = [];
     const tracker = {
         bestSelectedGroups: -1,
@@ -200,6 +227,7 @@ function generateCombinations(courses, preferences = {}) {
         optionGroups,
         0,
         [],
+        0,
         [],
         0,
         relaxedCombinations,
@@ -207,10 +235,24 @@ function generateCombinations(courses, preferences = {}) {
         maxTimetables,
         constrainedFamilies,
         new Map(),
-        batchPreference
+        batchPreference,
+        minCredits,
+        maxCredits,
+        suffixMaxCredits
     );
 
-    return relaxedCombinations.map((combo) => ({
+    // Sort relaxed combinations to prioritize higher course counts and higher credits within [minCredits, maxCredits]
+    relaxedCombinations.sort((a, b) => {
+        const diffCount = b.courses.length - a.courses.length;
+        if (diffCount !== 0) return diffCount;
+        const bCr = b.courses.reduce((sum, c) => sum + (c.credits || 0), 0);
+        const aCr = a.courses.reduce((sum, c) => sum + (c.credits || 0), 0);
+        return bCr - aCr;
+    });
+
+    const finalCombos = relaxedCombinations.slice(0, maxTimetables);
+
+    return finalCombos.map((combo) => ({
         courses: combo.courses,
         excludedGroupKeys: combo.excludedGroupKeys,
         generationMode: 'relaxed'
@@ -291,18 +333,27 @@ function buildCourseOptionGroups(courses, batchPreference) {
  * @param {array} optionGroups - Array of mandatory option groups
  * @param {number} groupIndex - Current group index
  * @param {array} currentTimetable - Current combination being built
+ * @param {number} currentCredits - Accumulated credits in current combination
  * @param {array} allTimetables - All valid combinations found
  * @param {number} maxResults - Maximum number of results to find
+ * @param {Set} constrainedFamilies
+ * @param {Map} selectedFacultyByFamily
+ * @param {string} batchPreference
+ * @param {number} minCredits - Minimum credit boundary (default 18)
+ * @param {number} maxCredits - Maximum credit boundary (default 27)
  */
 function backtrackOptionGroups(
     optionGroups,
     groupIndex,
     currentTimetable,
+    currentCredits,
     allTimetables,
     maxResults,
     constrainedFamilies,
     selectedFacultyByFamily,
-    batchPreference
+    batchPreference,
+    minCredits,
+    maxCredits
 ) {
     // Stop if we've found enough timetables
     if (allTimetables.length >= maxResults) {
@@ -311,7 +362,7 @@ function backtrackOptionGroups(
 
     // Base case: all groups processed
     if (groupIndex >= optionGroups.length) {
-        if (currentTimetable.length > 0) {
+        if (currentTimetable.length > 0 && currentCredits >= minCredits && currentCredits <= maxCredits) {
             allTimetables.push([...currentTimetable]);
         }
         return;
@@ -321,6 +372,11 @@ function backtrackOptionGroups(
     const currentSlots = currentTimetable.map(c => c.slot);
 
     for (const option of currentGroupOptions) {
+        const optCredits = option.credits !== undefined && !isNaN(Number(option.credits)) ? Number(option.credits) : 3;
+        if (currentCredits + optCredits > maxCredits) {
+            continue; // Prune: cannot exceed maxCredits (27)
+        }
+
         const facultyAssignment = tryAssignFacultyConstraint(option, constrainedFamilies, selectedFacultyByFamily);
         if (!facultyAssignment.ok) {
             continue;
@@ -336,11 +392,14 @@ function backtrackOptionGroups(
             optionGroups,
             groupIndex + 1,
             currentTimetable,
+            currentCredits + optCredits,
             allTimetables,
             maxResults,
             constrainedFamilies,
             selectedFacultyByFamily,
-            batchPreference
+            batchPreference,
+            minCredits,
+            maxCredits
         );
         currentTimetable.pop();
         undoFacultyAssignment(facultyAssignment, selectedFacultyByFamily);
@@ -354,12 +413,13 @@ function backtrackOptionGroups(
 /**
  * Relaxed backtracking:
  * choose one option from a group when possible, or skip group if unavoidable,
- * while maximizing total selected groups.
+ * selecting clash-free subsets within [minCredits, maxCredits].
  */
 function backtrackOptionGroupsRelaxed(
     optionGroups,
     groupIndex,
     currentTimetable,
+    currentCredits,
     excludedGroupKeys,
     selectedGroupsCount,
     allTimetables,
@@ -367,25 +427,46 @@ function backtrackOptionGroupsRelaxed(
     maxResults,
     constrainedFamilies,
     selectedFacultyByFamily,
-    batchPreference
+    batchPreference,
+    minCredits,
+    maxCredits,
+    suffixMaxCredits
 ) {
     const remainingGroups = optionGroups.length - groupIndex;
-    if (selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups) {
+
+    // Prune branches that cannot reach within 1 group of current best known solution
+    if (tracker.bestSelectedGroups > 0 && selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups - 1) {
         return;
     }
 
+    // Branch & Bound: Prune branches that cannot reach minCredits (18) even with all remaining groups
+    if (currentCredits + suffixMaxCredits[groupIndex] < minCredits) {
+        return;
+    }
+
+    // Base case: all groups evaluated
     if (groupIndex >= optionGroups.length) {
-        if (selectedGroupsCount <= 0) {
+        if (selectedGroupsCount <= 0 || currentCredits < minCredits || currentCredits > maxCredits) {
             return;
         }
 
         if (selectedGroupsCount > tracker.bestSelectedGroups) {
             tracker.bestSelectedGroups = selectedGroupsCount;
+            // Retain combinations within 1 group count of new best
+            const retained = allTimetables.filter((t) => t.courses.length >= tracker.bestSelectedGroups - 1);
             allTimetables.length = 0;
             tracker.seen.clear();
+            retained.forEach((t) => {
+                allTimetables.push(t);
+                const sig = t.courses
+                    .map((c) => [c.courseCode, c.courseType, c.slot, c.faculty, c.venue].join('|'))
+                    .sort()
+                    .join('||') + '##' + [...t.excludedGroupKeys].sort().join('|');
+                tracker.seen.add(sig);
+            });
         }
 
-        if (selectedGroupsCount === tracker.bestSelectedGroups && allTimetables.length < maxResults) {
+        if (selectedGroupsCount >= tracker.bestSelectedGroups - 1 && allTimetables.length < maxResults * 2) {
             if (validateTimetableBatchPurity(currentTimetable, batchPreference)) {
                 const courseSignature = currentTimetable
                     .map((course) => [course.courseCode, course.courseType, course.slot, course.faculty, course.venue].join('|'))
@@ -408,7 +489,13 @@ function backtrackOptionGroupsRelaxed(
     const currentGroup = optionGroups[groupIndex];
     const currentSlots = currentTimetable.map((c) => c.slot);
 
+    // Branch 1: Try selecting options from currentGroup
     for (const option of currentGroup.options) {
+        const optCredits = option.credits !== undefined && !isNaN(Number(option.credits)) ? Number(option.credits) : 3;
+        if (currentCredits + optCredits > maxCredits) {
+            continue; // Prune: cannot exceed maxCredits (27)
+        }
+
         const facultyAssignment = tryAssignFacultyConstraint(option, constrainedFamilies, selectedFacultyByFamily);
         if (!facultyAssignment.ok) {
             continue;
@@ -424,6 +511,7 @@ function backtrackOptionGroupsRelaxed(
             optionGroups,
             groupIndex + 1,
             currentTimetable,
+            currentCredits + optCredits,
             excludedGroupKeys,
             selectedGroupsCount + 1,
             allTimetables,
@@ -431,16 +519,21 @@ function backtrackOptionGroupsRelaxed(
             maxResults,
             constrainedFamilies,
             selectedFacultyByFamily,
-            batchPreference
+            batchPreference,
+            minCredits,
+            maxCredits,
+            suffixMaxCredits
         );
         currentTimetable.pop();
         undoFacultyAssignment(facultyAssignment, selectedFacultyByFamily);
     }
 
+    // Branch 2: Skip this group
     backtrackOptionGroupsRelaxed(
         optionGroups,
         groupIndex + 1,
         currentTimetable,
+        currentCredits,
         [...excludedGroupKeys, currentGroup.groupKey],
         selectedGroupsCount,
         allTimetables,
@@ -448,7 +541,10 @@ function backtrackOptionGroupsRelaxed(
         maxResults,
         constrainedFamilies,
         selectedFacultyByFamily,
-        batchPreference
+        batchPreference,
+        minCredits,
+        maxCredits,
+        suffixMaxCredits
     );
 }
 
@@ -695,37 +791,48 @@ function computeHeuristicScore(schedule, features, rankingCriteria = 'balanced')
  * @returns {array} Array of timetable objects with schedules and features
  */
 function generateWithMetadata(courses, preferences = {}) {
-    const combinations = generateCombinations(courses, preferences);
-    const rankingCriteria = preferences.rankingCriteria || 'balanced';
+    const minCredits = preferences.minCredits !== undefined ? Number(preferences.minCredits) : 18;
+    const maxCredits = preferences.maxCredits !== undefined ? Number(preferences.maxCredits) : 27;
+    const effectivePreferences = {
+        ...preferences,
+        minCredits,
+        maxCredits
+    };
 
-    const scored = combinations.map((combo, index) => {
-        const courseList = combo.courses;
-        const schedule = createSchedule(courseList);
-        const features = calculateFeatures(schedule);
-        const heuristic = computeHeuristicScore(schedule, features, rankingCriteria);
-        const ttBatch = getTimetableBatch(courseList);
+    const combinations = generateCombinations(courses, effectivePreferences);
+    const rankingCriteria = effectivePreferences.rankingCriteria || 'balanced';
 
-        return {
-            timetableId: `TT-${Date.now()}-${index}`,
-            batch: ttBatch,
-            courses: courseList,
-            schedule,
-            rankingScore: heuristic.score,
-            rankingCriteria: heuristic.rankingCriteria,
-            heuristicSummary: heuristic.summary,
-            features: {
-                ...features,
-                batchShift: ttBatch,
+    const scored = combinations
+        .map((combo, index) => {
+            const courseList = combo.courses;
+            const schedule = createSchedule(courseList);
+            const features = calculateFeatures(schedule);
+            const heuristic = computeHeuristicScore(schedule, features, rankingCriteria);
+            const ttBatch = getTimetableBatch(courseList);
+            const totalCredits = courseList.reduce((sum, c) => sum + (c.credits || 0), 0);
+
+            return {
+                timetableId: `TT-${Date.now()}-${index}`,
+                batch: ttBatch,
+                courses: courseList,
+                schedule,
                 rankingScore: heuristic.score,
                 rankingCriteria: heuristic.rankingCriteria,
-                heuristicSummary: heuristic.summary
-            },
-            generationMode: combo.generationMode,
-            excludedCourseGroups: combo.excludedGroupKeys,
-            totalCourses: courseList.length,
-            totalCredits: courseList.reduce((sum, c) => sum + (c.credits || 0), 0)
-        };
-    });
+                heuristicSummary: heuristic.summary,
+                features: {
+                    ...features,
+                    batchShift: ttBatch,
+                    rankingScore: heuristic.score,
+                    rankingCriteria: heuristic.rankingCriteria,
+                    heuristicSummary: heuristic.summary
+                },
+                generationMode: combo.generationMode,
+                excludedCourseGroups: combo.excludedGroupKeys,
+                totalCourses: courseList.length,
+                totalCredits
+            };
+        })
+        .filter((tt) => tt.totalCredits >= minCredits && tt.totalCredits <= maxCredits);
 
     // Legitimate sorting: rank combinations highest score first!
     scored.sort((a, b) => b.rankingScore - a.rankingScore);
@@ -751,7 +858,9 @@ function generateWithMetadata(courses, preferences = {}) {
 function generateWithoutClashConstraint(courses, preferences = {}) {
     const {
         batchPreference = 'Morning',
-        maxTimetables = 50
+        maxTimetables = 50,
+        minCredits = 18,
+        maxCredits = 27
     } = preferences;
 
     if (!Array.isArray(courses) || courses.length === 0) {
@@ -760,8 +869,8 @@ function generateWithoutClashConstraint(courses, preferences = {}) {
 
     if (batchPreference === 'Both') {
         const half = Math.ceil(maxTimetables / 2);
-        const m = generateWithoutClashConstraint(courses, { ...preferences, batchPreference: 'Morning', maxTimetables: half });
-        const e = generateWithoutClashConstraint(courses, { ...preferences, batchPreference: 'Evening', maxTimetables: half });
+        const m = generateWithoutClashConstraint(courses, { ...preferences, batchPreference: 'Morning', maxTimetables: half, minCredits, maxCredits });
+        const e = generateWithoutClashConstraint(courses, { ...preferences, batchPreference: 'Evening', maxTimetables: half, minCredits, maxCredits });
         return [...m, ...e];
     }
 
@@ -793,31 +902,51 @@ function generateWithoutClashConstraint(courses, preferences = {}) {
             selected.push(group.options[choiceIndex]);
         }
 
-        const signature = selected
-            .map((course) => [course.courseCode, course.courseType, course.slot, course.faculty, course.venue].join('|'))
-            .sort()
-            .join('||');
-
         if (!passesFacultyConsistency(selected, constrainedFamilies)) {
             continue;
         }
+
+        // Ensure fallback variant strictly adheres to [minCredits, maxCredits]
+        let candidateCourses = selected;
+        let candidateCredits = selected.reduce((sum, c) => sum + (c.credits || 0), 0);
+        if (candidateCredits > maxCredits) {
+            candidateCourses = [];
+            let accCredits = 0;
+            for (const c of selected) {
+                const cr = c.credits !== undefined && !isNaN(Number(c.credits)) ? Number(c.credits) : 3;
+                if (accCredits + cr <= maxCredits) {
+                    candidateCourses.push(c);
+                    accCredits += cr;
+                }
+            }
+            candidateCredits = accCredits;
+        }
+
+        if (candidateCredits < minCredits || candidateCredits > maxCredits) {
+            continue;
+        }
+
+        const signature = candidateCourses
+            .map((course) => [course.courseCode, course.courseType, course.slot, course.faculty, course.venue].join('|'))
+            .sort()
+            .join('||');
 
         if (seen.has(signature)) {
             continue;
         }
 
         seen.add(signature);
-        const schedule = createSchedule(selected);
+        const schedule = createSchedule(candidateCourses);
         const features = calculateFeatures(schedule);
         variants.push({
             timetableId: `TT-FALLBACK-${Date.now()}-${variants.length}`,
-            courses: selected,
+            courses: candidateCourses,
             schedule,
             features,
             generationMode: 'fallback_non_clash_checked',
             excludedCourseGroups: [],
-            totalCourses: selected.length,
-            totalCredits: selected.reduce((sum, c) => sum + (c.credits || 0), 0)
+            totalCourses: candidateCourses.length,
+            totalCredits: candidateCredits
         });
     }
 

@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Lock, Mail, AlertCircle, ArrowRight, KeyRound, School } from "lucide-react";
+import { Lock, Mail, AlertCircle, ArrowRight, School } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -27,12 +27,6 @@ const Login = () => {
   if (user) {
     return <Navigate to="/" replace />;
   }
-
-  const handleFillDemo = () => {
-    setVitEmail("demo.student@vitstudent.ac.in");
-    setPassword("Demo@12345");
-    setErrorMessage(null);
-  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -94,26 +88,6 @@ const Login = () => {
           </div>
 
           <div className="p-6">
-            {/* Demo Credentials Quick-Fill Banner */}
-            <div className="mb-4 p-3 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-between gap-2 text-xs">
-              <div className="truncate">
-                <p className="font-bold text-[#2455a3] dark:text-blue-300 flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 shrink-0" />
-                  <span>Demo Student Credentials</span>
-                </p>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5">demo.student@vitstudent.ac.in</p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleFillDemo}
-                className="text-xs h-7 px-2.5 border-blue-300 text-[#2455a3] hover:bg-blue-100 shrink-0 font-semibold"
-              >
-                Auto Fill
-              </Button>
-            </div>
-
             {/* Form Error Banner */}
             {errorMessage && (
               <div
