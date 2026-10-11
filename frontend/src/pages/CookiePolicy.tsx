@@ -21,24 +21,24 @@ export const CookiePolicy = () => {
             </Link>
           </Button>
 
-          <div className="bg-white border border-slate-300 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
-            <div className="flex items-center gap-2 mb-1 text-[#2455a3] text-[11px] font-bold uppercase tracking-wider">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 border-l-4 border-l-[#2455a3] transition-colors">
+            <div className="flex items-center gap-2 mb-1 text-[#2455a3] dark:text-blue-400 text-[11px] font-bold uppercase tracking-wider">
               <Cookie className="w-3.5 h-3.5" />
               <span>Cookie &amp; Storage Transparency</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
               Cookie Policy
             </h1>
-            <p className="text-slate-500 text-xs mt-1">
+            <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
               Applicable for VIT Academic Session • Zero Advertising Cookies
             </p>
           </div>
         </div>
 
-        <div className="space-y-4 text-xs text-slate-700">
-          <div className="bg-white border border-slate-300 rounded shadow-card p-6">
-            <h2 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#2455a3]" />
+        <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-6 transition-colors">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#2455a3] dark:text-blue-400" />
               <span>1. Strict Privacy &amp; No-Tracking Guarantee</span>
             </h2>
             <p className="leading-relaxed">
@@ -46,37 +46,37 @@ export const CookiePolicy = () => {
             </p>
           </div>
 
-          <div className="bg-white border border-slate-300 rounded shadow-card p-6">
-            <h2 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-700" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-6 transition-colors">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
               <span>2. Detailed Cookies &amp; Storage Inventory</span>
             </h2>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse border border-slate-300">
+              <table className="w-full text-xs text-left border-collapse border border-slate-300 dark:border-slate-800">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-bold">
+                  <tr className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold">
                     <th className="p-2.5">Identifier</th>
                     <th className="p-2.5">Category</th>
                     <th className="p-2.5">Duration</th>
                     <th className="p-2.5">Purpose</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 text-slate-700">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                   <tr>
-                    <td className="p-2.5 font-mono font-semibold text-[#2455a3]">connect.sid / token</td>
+                    <td className="p-2.5 font-mono font-semibold text-[#2455a3] dark:text-blue-400">connect.sid / token</td>
                     <td className="p-2.5">Essential / HTTP-Only Cookie</td>
                     <td className="p-2.5">Session / 7 Days</td>
                     <td className="p-2.5">Secures student authentication session against CSRF attacks.</td>
                   </tr>
                   <tr>
-                    <td className="p-2.5 font-mono font-semibold text-amber-700">ffcs_cookie_consent</td>
+                    <td className="p-2.5 font-mono font-semibold text-amber-600 dark:text-amber-400">ffcs_cookie_consent</td>
                     <td className="p-2.5">Preferences / LocalStorage</td>
                     <td className="p-2.5">1 Year</td>
                     <td className="p-2.5">Records your selection ("all" or "essential") on the cookie banner.</td>
                   </tr>
                   <tr>
-                    <td className="p-2.5 font-mono font-semibold text-emerald-700">ffcs_preferences</td>
+                    <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">ffcs_preferences</td>
                     <td className="p-2.5">Functional / LocalStorage</td>
                     <td className="p-2.5">Persistent</td>
                     <td className="p-2.5">Stores chosen morning or evening slot batch preference.</td>
@@ -86,14 +86,14 @@ export const CookiePolicy = () => {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-300 rounded shadow-card p-6">
-            <h2 className="text-sm font-bold text-slate-900 mb-2">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-6 transition-colors">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
               3. How to Manage or Clear Cookies
             </h2>
             <p className="leading-relaxed mb-2">
               You can control or clear cookies at any time directly through your web browser settings (Chrome, Firefox, Safari, Edge):
             </p>
-            <ul className="list-disc pl-5 space-y-1 text-slate-600">
+            <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-400">
               <li>Click the padlock icon next to the address bar in your browser to inspect and delete active site cookies.</li>
               <li>Clearing cookies will log you out of your current session, requiring you to sign back in with your VIT email.</li>
             </ul>

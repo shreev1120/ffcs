@@ -21,24 +21,24 @@ export const Terms = () => {
             </Link>
           </Button>
 
-          <div className="bg-white border border-slate-300 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
-            <div className="flex items-center gap-2 mb-1 text-[#2455a3] text-[11px] font-bold uppercase tracking-wider">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 border-l-4 border-l-[#2455a3] transition-colors">
+            <div className="flex items-center gap-2 mb-1 text-[#2455a3] dark:text-blue-400 text-[11px] font-bold uppercase tracking-wider">
               <FileText className="w-3.5 h-3.5" />
               <span>Institutional Terms &amp; Platform Agreement</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
               Terms of Service
             </h1>
-            <p className="text-slate-500 text-xs mt-1">
+            <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
               Applicable for Fall and Winter Academic Cycles • Vellore Campus
             </p>
           </div>
         </div>
 
-        <div className="space-y-4 text-xs text-slate-700">
-          <div className="bg-white border border-slate-300 rounded shadow-card p-6">
-            <h2 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-emerald-700" />
+        <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-6 transition-colors">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>1. Permitted Use &amp; Student Scope</span>
             </h2>
             <p className="leading-relaxed">
@@ -46,9 +46,9 @@ export const Terms = () => {
             </p>
           </div>
 
-          <div className="bg-white border border-slate-300 rounded shadow-card p-6">
-            <h2 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-amber-700" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-6 transition-colors">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400" />
               <span>2. Independent Software Disclaimer</span>
             </h2>
             <p className="leading-relaxed">
@@ -56,32 +56,32 @@ export const Terms = () => {
             </p>
           </div>
 
-          <div className="bg-white border border-slate-300 rounded shadow-card p-6">
-            <h2 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-[#2455a3]" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-6 transition-colors">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-[#2455a3] dark:text-blue-400" />
               <span>3. User Responsibilities</span>
             </h2>
             <p className="leading-relaxed mb-2">
               When utilizing this platform, you agree to:
             </p>
-            <ul className="list-disc pl-5 space-y-1 text-slate-600">
+            <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-400">
               <li>Upload only your legitimate course registration lists or mock files without malicious payloads.</li>
               <li>Verify the final slot codes on VTOP before confirming registration during the live allocation window.</li>
               <li>Maintain the security and confidentiality of your account credentials.</li>
             </ul>
           </div>
 
-          <div className="bg-white border border-slate-300 rounded shadow-card p-6">
-            <h2 className="text-sm font-bold text-slate-900 mb-2">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-6 transition-colors">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
               4. Contact Information
             </h2>
             <p className="mb-2">
               Questions regarding these Terms may be directed to our student development desk:
             </p>
-            <p className="font-semibold text-slate-800">
+            <p className="font-semibold text-slate-800 dark:text-slate-200">
               VIT FFCS Agent Project Team • Vellore Institute of Technology, Katpadi Road, Vellore 632014, Tamil Nadu, India.
             </p>
-            <p className="text-[#2455a3] font-mono mt-1">
+            <p className="text-[#2455a3] dark:text-blue-400 font-mono mt-1">
               Email: ffcs.support@vitstudent.ac.in
             </p>
           </div>

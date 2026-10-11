@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import SEO from "@/components/common/SEO";
 import AppLogo, { LogoIcon } from "@/components/common/AppLogo";
+import ThemeToggle from "@/components/common/ThemeToggle";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f0f4f8] text-slate-900">
+    <div className="min-h-screen flex flex-col bg-[#f0f4f8] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       <SEO
         title="Student Login"
         description="Sign in to your VIT FFCS student account to generate, inspect, and save clash-free timetables."
@@ -69,20 +70,23 @@ const Login = () => {
       <nav className="vtop-header-gradient text-white py-2 px-6 shadow-sm border-b border-[#1b4b8a]">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <AppLogo size="sm" textVariant="white" linkTo="/login" showBadge={false} />
-          <div className="text-xs text-white/80 hidden sm:block font-medium">
-            VTOP Academic Login Portal
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-white/80 hidden sm:block font-medium">
+              VTOP Academic Login Portal
+            </div>
+            <ThemeToggle variant="icon" />
           </div>
         </div>
       </nav>
 
       {/* Main Login Box */}
       <div className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md bg-white border border-slate-300 rounded shadow-card overflow-hidden border-t-4 border-t-[#2455a3]">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card overflow-hidden border-t-4 border-t-[#2455a3] transition-colors">
           {/* Card Header */}
-          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-bold text-[#1b4b8a]">Student Portal Login</h1>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h1 className="text-lg font-bold text-[#1b4b8a] dark:text-blue-400">Student Portal Login</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Access Timetable Optimization &amp; Course Slot Allocation
               </p>
             </div>
@@ -91,13 +95,13 @@ const Login = () => {
 
           <div className="p-6">
             {/* Demo Credentials Quick-Fill Banner */}
-            <div className="mb-4 p-3 rounded bg-blue-50 border border-blue-200 flex items-center justify-between gap-2 text-xs">
+            <div className="mb-4 p-3 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-between gap-2 text-xs">
               <div className="truncate">
-                <p className="font-bold text-[#2455a3] flex items-center gap-1.5">
+                <p className="font-bold text-[#2455a3] dark:text-blue-300 flex items-center gap-1.5">
                   <KeyRound className="w-3.5 h-3.5 shrink-0" />
                   <span>Demo Student Credentials</span>
                 </p>
-                <p className="text-[11px] text-slate-600 truncate mt-0.5">demo.student@vitstudent.ac.in</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5">demo.student@vitstudent.ac.in</p>
               </div>
               <Button
                 type="button"
@@ -129,12 +133,12 @@ const Login = () => {
               <div className="space-y-1">
                 <label
                   htmlFor="vit-email"
-                  className="text-xs font-bold uppercase tracking-wider text-slate-700 block"
+                  className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block"
                 >
                   VIT Student Email
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
                   <Input
                     id="vit-email"
                     value={vitEmail}
@@ -146,7 +150,7 @@ const Login = () => {
                     required
                     aria-required="true"
                     aria-invalid={vitEmail.length > 0 && !isEmailValid}
-                    className={`pl-9 h-10 text-xs rounded border-slate-300 ${
+                    className={`pl-9 h-10 text-xs rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 ${
                       vitEmail.length > 0 && !isEmailValid
                         ? "border-red-500 focus-visible:ring-red-400"
                         : "focus-visible:ring-[#2455a3]"
@@ -155,7 +159,7 @@ const Login = () => {
                   />
                 </div>
                 {vitEmail.trim().length > 0 && !isEmailValid && (
-                  <p className="text-[11px] text-red-600 flex items-center gap-1 mt-1">
+                  <p className="text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
                     <AlertCircle className="w-3 h-3" />
                     <span>Must be a valid @vitstudent.ac.in address.</span>
                   </p>
@@ -165,12 +169,12 @@ const Login = () => {
               <div className="space-y-1">
                 <label
                   htmlFor="password"
-                  className="text-xs font-bold uppercase tracking-wider text-slate-700 block"
+                  className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block"
                 >
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
                   <Input
                     id="password"
                     value={password}
@@ -181,7 +185,7 @@ const Login = () => {
                     type="password"
                     required
                     aria-required="true"
-                    className="pl-9 h-10 text-xs rounded border-slate-300 focus-visible:ring-[#2455a3]"
+                    className="pl-9 h-10 text-xs rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus-visible:ring-[#2455a3]"
                     placeholder="••••••••"
                   />
                 </div>
@@ -207,9 +211,9 @@ const Login = () => {
               </Button>
 
               <div className="text-center pt-2">
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-slate-600 dark:text-slate-400">
                   New student registration?{" "}
-                  <Link to="/signup" className="text-[#2455a3] font-bold hover:underline">
+                  <Link to="/signup" className="text-[#2455a3] dark:text-blue-400 font-bold hover:underline">
                     Create Account
                   </Link>
                 </p>
@@ -217,12 +221,12 @@ const Login = () => {
             </form>
           </div>
 
-          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
             <span>Fall Semester</span>
             <div className="flex items-center gap-3">
-              <Link to="/privacy-policy" className="hover:text-slate-800">Privacy Policy</Link>
+              <Link to="/privacy-policy" className="hover:text-slate-800 dark:hover:text-slate-200">Privacy Policy</Link>
               <span>•</span>
-              <Link to="/terms" className="hover:text-slate-800">Terms</Link>
+              <Link to="/terms" className="hover:text-slate-800 dark:hover:text-slate-200">Terms</Link>
             </div>
           </div>
         </div>

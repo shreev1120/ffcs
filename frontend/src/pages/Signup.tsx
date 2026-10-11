@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import SEO from "@/components/common/SEO";
 import AppLogo, { LogoIcon } from "@/components/common/AppLogo";
+import ThemeToggle from "@/components/common/ThemeToggle";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f0f4f8] text-slate-900">
+    <div className="min-h-screen flex flex-col bg-[#f0f4f8] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       <SEO
         title="Create Student Account"
         description="Register for VIT FFCS Agent to automatically generate clash-free schedules from your VTOP Excel sheets."
@@ -105,20 +106,23 @@ const Signup = () => {
       <nav className="vtop-header-gradient text-white py-2 px-6 shadow-sm border-b border-[#1b4b8a]">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <AppLogo size="sm" textVariant="white" linkTo="/signup" showBadge={false} />
-          <div className="text-xs text-white/80 hidden sm:block font-medium">
-            Student Registration Portal
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-white/80 hidden sm:block font-medium">
+              Student Registration Portal
+            </div>
+            <ThemeToggle variant="icon" />
           </div>
         </div>
       </nav>
 
       {/* Main Registration Box */}
       <div className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md bg-white border border-slate-300 rounded shadow-card overflow-hidden border-t-4 border-t-[#2455a3]">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card overflow-hidden border-t-4 border-t-[#2455a3] transition-colors">
           {/* Card Header */}
-          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-bold text-[#1b4b8a]">Create Student Account</h1>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h1 className="text-lg font-bold text-[#1b4b8a] dark:text-blue-400">Create Student Account</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Register to save schedules and optimize course registration
               </p>
             </div>

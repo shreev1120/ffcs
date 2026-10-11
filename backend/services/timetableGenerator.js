@@ -1,4 +1,12 @@
-const { hasClash, filterCoursesByBatch, getTimeSlots, validateTimetableBatchPurity, getTimetableBatch } = require('../utils/slotMapping');
+const {
+    hasClash,
+    filterCoursesByBatch,
+    convertLabSlotForBatch,
+    isLabCourse,
+    getTimeSlots,
+    validateTimetableBatchPurity,
+    getTimetableBatch
+} = require('../utils/slotMapping');
 
 function normalizeFacultyName(faculty) {
     return (faculty || '').toString().trim().toUpperCase();
@@ -22,26 +30,35 @@ function getCourseFamilyKey(courseCode) {
 }
 
 function buildFacultyConstraintFamilies(optionGroups) {
-    const familyKinds = new Map();
+    const familyTheoryFaculties = new Map();
+    const familyLabFaculties = new Map();
 
     optionGroups.forEach((group) => {
-        const sample = group.options && group.options.length > 0 ? group.options[0] : null;
-        if (!sample) return;
+        (group.options || []).forEach((opt) => {
+            const familyKey = getCourseFamilyKey(opt.courseCode);
+            const kind = getCourseComponentKind(opt);
+            const faculty = normalizeFacultyName(opt.faculty);
+            if (!faculty || kind === 'OTHER') return;
 
-        const familyKey = getCourseFamilyKey(sample.courseCode);
-        const kind = getCourseComponentKind(sample);
-        if (kind === 'OTHER') return;
-
-        if (!familyKinds.has(familyKey)) {
-            familyKinds.set(familyKey, new Set());
-        }
-        familyKinds.get(familyKey).add(kind);
+            if (kind === 'THEORY') {
+                if (!familyTheoryFaculties.has(familyKey)) familyTheoryFaculties.set(familyKey, new Set());
+                familyTheoryFaculties.get(familyKey).add(faculty);
+            } else if (kind === 'LAB') {
+                if (!familyLabFaculties.has(familyKey)) familyLabFaculties.set(familyKey, new Set());
+                familyLabFaculties.get(familyKey).add(faculty);
+            }
+        });
     });
 
     const constrained = new Set();
-    familyKinds.forEach((kinds, familyKey) => {
-        if (kinds.has('THEORY') && kinds.has('LAB')) {
-            constrained.add(familyKey);
+    familyTheoryFaculties.forEach((theoryFaculties, familyKey) => {
+        const labFaculties = familyLabFaculties.get(familyKey);
+        if (labFaculties && labFaculties.size > 0) {
+            // Only constrain if there is at least one common faculty between Theory and Lab options!
+            const hasCommonFaculty = [...theoryFaculties].some((f) => labFaculties.has(f));
+            if (hasCommonFaculty) {
+                constrained.add(familyKey);
+            }
         }
     });
 
@@ -221,12 +238,28 @@ function buildCourseOptionGroups(courses, batchPreference) {
     const optionGroups = [];
 
     for (const options of groups.values()) {
-        const preferredBatchOptions =
-            batchPreference === 'Both'
-                ? options
-                : filterCoursesByBatch(options, batchPreference);
+        let candidateOptions = options;
 
-        const candidateOptions = preferredBatchOptions;
+        if (batchPreference !== 'Both') {
+            let preferred = filterCoursesByBatch(options, batchPreference);
+
+            // If a lab course has no options matching the batch shift directly,
+            // adapt its lab slot to the target batch shift (L(n) <-> L(n + 30))!
+            // Morning batch gets Evening labs (L31 to L60).
+            // Evening batch gets Morning labs (L1 to L30).
+            if (preferred.length === 0 && options.some(isLabCourse)) {
+                const adapted = options.map((opt) => {
+                    if (isLabCourse(opt)) {
+                        const newSlot = convertLabSlotForBatch(opt.slot, batchPreference);
+                        return { ...opt, slot: newSlot };
+                    }
+                    return opt;
+                });
+                preferred = filterCoursesByBatch(adapted, batchPreference);
+            }
+
+            candidateOptions = preferred;
+        }
 
         const seen = new Set();
         const uniqueOptions = [];

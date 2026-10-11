@@ -1,12 +1,14 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle, Download } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import SEO from "@/components/common/SEO";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import html2canvas from "html2canvas";
 
 type TimetableEntry = {
   courseCode: string;
@@ -99,87 +101,133 @@ const TEMPLATE_CELL_LABELS: Record<string, { morning: string[]; evening: string[
   },
 };
 
+interface CourseTheme {
+  cardBg: string;
+  border: string;
+  slotBadge: string;
+  codeText: string;
+  titleText: string;
+  subText: string;
+  tdBg: string;
+}
+
+const COURSE_PALETTES: CourseTheme[] = [
+  {
+    // Sapphire Blue
+    cardBg: "bg-blue-100/95 dark:bg-blue-950/90",
+    border: "border-blue-400 dark:border-blue-600",
+    slotBadge: "bg-blue-600 dark:bg-blue-500 text-white",
+    codeText: "text-blue-950 dark:text-blue-100 font-bold",
+    titleText: "text-blue-900 dark:text-blue-200",
+    subText: "text-blue-800 dark:text-blue-300",
+    tdBg: "bg-blue-50/90 dark:bg-blue-950/40",
+  },
+  {
+    // Emerald Green
+    cardBg: "bg-emerald-100/95 dark:bg-emerald-950/90",
+    border: "border-emerald-400 dark:border-emerald-600",
+    slotBadge: "bg-emerald-600 dark:bg-emerald-500 text-white",
+    codeText: "text-emerald-950 dark:text-emerald-100 font-bold",
+    titleText: "text-emerald-900 dark:text-emerald-200",
+    subText: "text-emerald-800 dark:text-emerald-300",
+    tdBg: "bg-emerald-50/90 dark:bg-emerald-950/40",
+  },
+  {
+    // Purple / Amethyst
+    cardBg: "bg-purple-100/95 dark:bg-purple-950/90",
+    border: "border-purple-400 dark:border-purple-600",
+    slotBadge: "bg-purple-600 dark:bg-purple-500 text-white",
+    codeText: "text-purple-950 dark:text-purple-100 font-bold",
+    titleText: "text-purple-900 dark:text-purple-200",
+    subText: "text-purple-800 dark:text-purple-300",
+    tdBg: "bg-purple-50/90 dark:bg-purple-950/40",
+  },
+  {
+    // Amber / Marigold
+    cardBg: "bg-amber-100/95 dark:bg-amber-950/90",
+    border: "border-amber-400 dark:border-amber-600",
+    slotBadge: "bg-amber-600 dark:bg-amber-500 text-white",
+    codeText: "text-amber-950 dark:text-amber-100 font-bold",
+    titleText: "text-amber-900 dark:text-amber-200",
+    subText: "text-amber-800 dark:text-amber-300",
+    tdBg: "bg-amber-50/90 dark:bg-amber-950/40",
+  },
+  {
+    // Rose / Crimson
+    cardBg: "bg-rose-100/95 dark:bg-rose-950/90",
+    border: "border-rose-400 dark:border-rose-600",
+    slotBadge: "bg-rose-600 dark:bg-rose-500 text-white",
+    codeText: "text-rose-950 dark:text-rose-100 font-bold",
+    titleText: "text-rose-900 dark:text-rose-200",
+    subText: "text-rose-800 dark:text-rose-300",
+    tdBg: "bg-rose-50/90 dark:bg-rose-950/40",
+  },
+  {
+    // Teal / Mint
+    cardBg: "bg-teal-100/95 dark:bg-teal-950/90",
+    border: "border-teal-400 dark:border-teal-600",
+    slotBadge: "bg-teal-600 dark:bg-teal-500 text-white",
+    codeText: "text-teal-950 dark:text-teal-100 font-bold",
+    titleText: "text-teal-900 dark:text-teal-200",
+    subText: "text-teal-800 dark:text-teal-300",
+    tdBg: "bg-teal-50/90 dark:bg-teal-950/40",
+  },
+  {
+    // Orange / Coral
+    cardBg: "bg-orange-100/95 dark:bg-orange-950/90",
+    border: "border-orange-400 dark:border-orange-600",
+    slotBadge: "bg-orange-600 dark:bg-orange-500 text-white",
+    codeText: "text-orange-950 dark:text-orange-100 font-bold",
+    titleText: "text-orange-900 dark:text-orange-200",
+    subText: "text-orange-800 dark:text-orange-300",
+    tdBg: "bg-orange-50/90 dark:bg-orange-950/40",
+  },
+  {
+    // Indigo / Iris
+    cardBg: "bg-indigo-100/95 dark:bg-indigo-950/90",
+    border: "border-indigo-400 dark:border-indigo-600",
+    slotBadge: "bg-indigo-600 dark:bg-indigo-500 text-white",
+    codeText: "text-indigo-950 dark:text-indigo-100 font-bold",
+    titleText: "text-indigo-900 dark:text-indigo-200",
+    subText: "text-indigo-800 dark:text-indigo-300",
+    tdBg: "bg-indigo-50/90 dark:bg-indigo-950/40",
+  },
+  {
+    // Fuchsia / Magenta
+    cardBg: "bg-fuchsia-100/95 dark:bg-fuchsia-950/90",
+    border: "border-fuchsia-400 dark:border-fuchsia-600",
+    slotBadge: "bg-fuchsia-600 dark:bg-fuchsia-500 text-white",
+    codeText: "text-fuchsia-950 dark:text-fuchsia-100 font-bold",
+    titleText: "text-fuchsia-900 dark:text-fuchsia-200",
+    subText: "text-fuchsia-800 dark:text-fuchsia-300",
+    tdBg: "bg-fuchsia-50/90 dark:bg-fuchsia-950/40",
+  },
+  {
+    // Cyan / Sky
+    cardBg: "bg-cyan-100/95 dark:bg-cyan-950/90",
+    border: "border-cyan-400 dark:border-cyan-600",
+    slotBadge: "bg-cyan-600 dark:bg-cyan-500 text-white",
+    codeText: "text-cyan-950 dark:text-cyan-100 font-bold",
+    titleText: "text-cyan-900 dark:text-cyan-200",
+    subText: "text-cyan-800 dark:text-cyan-300",
+    tdBg: "bg-cyan-50/90 dark:bg-cyan-950/40",
+  },
+];
+
+function getCourseTheme(courseCode?: string): CourseTheme {
+  if (!courseCode) return COURSE_PALETTES[0];
+  let hash = 0;
+  for (let i = 0; i < courseCode.length; i++) {
+    hash = (hash << 5) - hash + courseCode.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % COURSE_PALETTES.length;
+  return COURSE_PALETTES[index];
+}
+
 const isLabEntry = (entry: TimetableEntry) =>
   entry.slot?.toUpperCase().startsWith("L") || entry.courseType?.toUpperCase().includes("LAB");
 
-type RankingCriteria = "balanced" | "earliest_finish" | "no_morning" | "max_free_days";
-
-function parseTimeToMinutes(timeStr?: string): number {
-  if (!timeStr) return 0;
-  const parts = timeStr.split(":").map(Number);
-  return (parts[0] || 0) * 60 + (parts[1] || 0);
-}
-
-function computeTimetableHeuristic(
-  schedule: Record<string, TimetableEntry[]>,
-  features: TimetableFeatures | undefined,
-  criteria: RankingCriteria
-): { score: number; summary: string } {
-  const activeDays = Object.keys(schedule || {}).filter((d) => schedule[d] && schedule[d].length > 0);
-  const freeDays = features?.totalFreeDays ?? Math.max(0, 5 - activeDays.length);
-
-  switch (criteria) {
-    case "earliest_finish": {
-      let totalEndMinutes = 0;
-      activeDays.forEach((d) => {
-        const classes = schedule[d];
-        const lastClass = classes[classes.length - 1];
-        totalEndMinutes += parseTimeToMinutes(lastClass?.endTime);
-      });
-      const avgEnd = activeDays.length > 0 ? totalEndMinutes / activeDays.length : 1140;
-      const score = Math.max(20, Math.min(100, Math.round(100 - ((avgEnd - 780) / 390) * 75) + freeDays * 5));
-      const avgH = Math.floor(avgEnd / 60);
-      const avgM = Math.round(avgEnd % 60);
-      return {
-        score,
-        summary: `Concludes by ${String(avgH).padStart(2, "0")}:${String(avgM).padStart(2, "0")} daily (${freeDays} free days)`,
-      };
-    }
-    case "no_morning": {
-      let earlyDays = 0;
-      let lateDays = 0;
-      activeDays.forEach((d) => {
-        const classes = schedule[d];
-        const first = classes[0];
-        const startMin = parseTimeToMinutes(first?.startTime);
-        if (startMin <= 480) earlyDays++;
-        else if (startMin >= 590) lateDays++;
-      });
-      const score = Math.max(20, Math.min(100, 100 - earlyDays * 22 + lateDays * 6));
-      return {
-        score,
-        summary: earlyDays === 0
-          ? `Zero 08:00 AM periods (${lateDays} days starting 09:50 AM or later)`
-          : `${earlyDays} days starting at 08:00 AM; ${lateDays} late starts`,
-      };
-    }
-    case "max_free_days": {
-      const score = Math.min(100, 48 + freeDays * 26);
-      return {
-        score,
-        summary: `${freeDays} full free days; periods grouped into ${activeDays.length} weekdays`,
-      };
-    }
-    case "balanced":
-    default: {
-      let deadGaps = 0;
-      activeDays.forEach((d) => {
-        const classes = schedule[d];
-        for (let i = 0; i < classes.length - 1; i++) {
-          const gap = parseTimeToMinutes(classes[i + 1]?.startTime) - parseTimeToMinutes(classes[i]?.endTime);
-          if (gap > 75) deadGaps++;
-        }
-      });
-      const score = Math.max(30, Math.min(100, 95 - deadGaps * 12));
-      return {
-        score,
-        summary: deadGaps === 0
-          ? `Optimal gap transitions with minimal dead hours (${freeDays} free days)`
-          : `Balanced study gaps with ${deadGaps} break windows`,
-      };
-    }
-  }
-}
 
 const Results = () => {
   const location = useLocation();
@@ -210,11 +258,11 @@ const Results = () => {
     } catch {}
     return "All";
   });
-  const [rankingCriteria, setRankingCriteria] = useState<RankingCriteria>(
-    user?.preferences?.rankingCriteria || "balanced"
-  );
   const [page, setPage] = useState(1);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [downloading, setDownloading] = useState(false);
+  const timetableCardRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   // If timetable data is not yet in state, fetch the latest saved timetables from the user's account
   useEffect(() => {
@@ -252,24 +300,10 @@ const Results = () => {
 
   const filteredTimetables = useMemo(() => {
     const list = timetableData?.timetables || [];
-    const shiftFiltered = batchFilter === "All"
+    return batchFilter === "All"
       ? list
       : list.filter((tt) => detectTimetableShift(tt) === batchFilter);
-
-    // Score dynamically by chosen criteria
-    const scoredList = shiftFiltered.map((tt) => {
-      const heuristic = computeTimetableHeuristic(tt.schedule, tt.features, rankingCriteria);
-      return {
-        ...tt,
-        currentScore: heuristic.score,
-        currentSummary: heuristic.summary,
-      };
-    });
-
-    // Legitimate sorting: highest heuristic score first
-    scoredList.sort((a, b) => b.currentScore - a.currentScore);
-    return scoredList;
-  }, [timetableData, batchFilter, rankingCriteria]);
+  }, [timetableData, batchFilter]);
 
   const totalTimetables = filteredTimetables.length;
   const totalPages = Math.max(1, Math.ceil(totalTimetables / PAGE_SIZE));
@@ -283,6 +317,63 @@ const Results = () => {
     if (!filteredTimetables.length) return null;
     return filteredTimetables[selectedIndex] || filteredTimetables[0] || null;
   }, [selectedIndex, filteredTimetables]);
+
+  const uniqueCourses = useMemo(() => {
+    if (!selectedTimetable?.schedule) return [];
+    const entries: TimetableEntry[] = Object.values(selectedTimetable.schedule).flat();
+    const map = new Map<string, { code: string; name?: string }>();
+    entries.forEach((e) => {
+      if (e.courseCode && !map.has(e.courseCode)) {
+        map.set(e.courseCode, { code: e.courseCode, name: e.courseName });
+      }
+    });
+    return Array.from(map.values());
+  }, [selectedTimetable]);
+
+  const handleDownloadImage = async () => {
+    if (!timetableCardRef.current) return;
+    setDownloading(true);
+    try {
+      const targetElement = timetableCardRef.current;
+      const scrollableDiv = targetElement.querySelector(".overflow-x-auto") as HTMLElement | null;
+      const originalOverflow = scrollableDiv ? scrollableDiv.style.overflow : "";
+      if (scrollableDiv) {
+        scrollableDiv.style.overflow = "visible";
+      }
+
+      const canvas = await html2canvas(targetElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: document.documentElement.classList.contains("dark") ? "#0f172a" : "#ffffff",
+        windowWidth: 1400,
+      });
+
+      if (scrollableDiv) {
+        scrollableDiv.style.overflow = originalOverflow;
+      }
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const downloadLink = document.createElement("a");
+      downloadLink.download = `VIT_Timetable_Option_${selectedIndex + 1}.png`;
+      downloadLink.href = dataUrl;
+      downloadLink.click();
+
+      toast({
+        title: "Timetable Downloaded",
+        description: `Combination ${selectedIndex + 1} exported successfully as PNG image.`,
+      });
+    } catch (err) {
+      console.error("Failed to export timetable as image:", err);
+      toast({
+        title: "Download Failed",
+        description: "Could not export timetable as image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const getTheoryEntry = (day: string, slot: SlotRange | null) => {
     if (!slot || !selectedTimetable?.schedule?.[day]) return null;
@@ -314,26 +405,43 @@ const Results = () => {
 
     if (!hasCourse) {
       return (
-        <div className="leading-tight text-slate-400 font-mono text-[11px] text-center">
+        <div className="leading-tight text-slate-400 dark:text-slate-500 font-mono text-[11px] text-center py-2.5">
           {templateLabel || "-"}
         </div>
       );
     }
 
     return (
-      <div className="space-y-1 leading-tight text-xs">
-        {[theory, lab].filter(Boolean).map((entry, idx) => (
-          <div
-            key={`${entry?.slot || "slot"}-${entry?.courseCode || "code"}-${idx}`}
-            className="p-1.5 rounded bg-white border border-blue-200 text-slate-800"
-          >
-            <div className="font-bold text-[#2455a3]">{entry?.slot || "-"}</div>
-            <div className="font-semibold text-slate-900">{entry?.courseCode || "-"}</div>
-            <div className="text-[11px] text-slate-600 truncate">{entry?.courseName || "-"}</div>
-            <div className="text-[10px] text-slate-500 truncate">{entry?.faculty || "-"}</div>
-            <div className="text-[10px] text-slate-500 font-mono">{entry?.venue || "-"}</div>
-          </div>
-        ))}
+      <div className="space-y-1.5 leading-tight text-xs">
+        {[theory, lab].filter(Boolean).map((entry, idx) => {
+          const theme = getCourseTheme(entry?.courseCode);
+          return (
+            <div
+              key={`${entry?.slot || "slot"}-${entry?.courseCode || "code"}-${idx}`}
+              className={`p-2 rounded-md ${theme.cardBg} border-2 ${theme.border} shadow-sm transition-all hover:shadow-md`}
+            >
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide uppercase ${theme.slotBadge}`}>
+                  {entry?.slot || "-"}
+                </span>
+                <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">
+                  {entry?.venue || "-"}
+                </span>
+              </div>
+              <div className={`font-bold text-xs ${theme.codeText}`}>
+                {entry?.courseCode || "-"}
+              </div>
+              <div className={`text-[11px] font-medium leading-snug line-clamp-2 ${theme.titleText}`} title={entry?.courseName}>
+                {entry?.courseName || "-"}
+              </div>
+              {entry?.faculty && (
+                <div className={`text-[10px] mt-1 font-medium truncate ${theme.subText}`} title={entry?.faculty}>
+                  👤 {entry?.faculty}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -342,9 +450,9 @@ const Results = () => {
     return (
       <DashboardLayout>
         <SEO title="Timetables & Schedules" description="View your generated VIT FFCS conflict-free timetables." />
-        <div className="bg-white border border-slate-300 rounded p-10 text-center max-w-xl mx-auto my-12 shadow-card">
-          <h2 className="text-xl font-bold text-slate-900 mb-2">No Timetable Combinations Available</h2>
-          <p className="text-slate-600 text-xs mb-6">
+        <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded p-10 text-center max-w-xl mx-auto my-12 shadow-card">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">No Timetable Combinations Available</h2>
+          <p className="text-slate-600 dark:text-slate-400 text-xs mb-6">
             Please upload your course registration Excel sheet to generate conflict-free timetable permutations.
           </p>
           <Button
@@ -363,33 +471,33 @@ const Results = () => {
       <SEO title="Generated Timetable Options" description="Explore 100% clash-free VIT timetable schedules and weekly slot grids." />
 
       {/* VTOP Timetable Header */}
-      <div className="mb-6 bg-white border border-slate-300 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
+      <div className="mb-6 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-bold text-[#2455a3] uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-[#2455a3] dark:text-blue-400 uppercase tracking-wider">
                 VTOP Course Timetable
               </span>
-              <span className="text-slate-300">•</span>
-              <span className="text-xs text-slate-500">Fall Semester</span>
+              <span className="text-slate-300 dark:text-slate-700">•</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Fall Semester</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               Generated Timetable Combinations ({totalTimetables} Options)
             </h1>
-            <p className="text-slate-600 text-xs mt-1">
+            <p className="text-slate-600 dark:text-slate-400 text-xs mt-1">
               All permutations adhere strictly to VIT theory and laboratory slot separation rules with zero clashes.
             </p>
           </div>
-          <Button asChild variant="outline" className="border-[#2455a3] text-[#2455a3] hover:bg-blue-50 text-xs rounded shrink-0">
+          <Button asChild variant="outline" className="border-[#2455a3] dark:border-blue-500 text-[#2455a3] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 text-xs rounded shrink-0">
             <Link to="/thank-you">View Confirmation Summary →</Link>
           </Button>
         </div>
       </div>
 
-      {/* Academic Shift Filter Tabs & Heuristic Criteria Selector */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-300 rounded p-3 shadow-sm">
+      {/* Academic Shift Filter Tabs */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded p-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-slate-700 mr-1">Shift Category:</span>
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mr-1">Shift Category:</span>
           {(["All", "Morning", "Evening"] as const).map((filter) => {
             const isActive = batchFilter === filter;
             return (
@@ -404,35 +512,13 @@ const Results = () => {
                 className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
                   isActive
                     ? "bg-[#2455a3] text-white shadow-sm"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                 }`}
               >
                 {filter === "All" ? "All Options" : `${filter} Shift (${filter === "Morning" ? "A1 / L31+" : "A2 / L1+"})`}
               </button>
             );
           })}
-        </div>
-
-        {/* Live Optimization Heuristic Switcher */}
-        <div className="flex items-center gap-2">
-          <label htmlFor="heuristic-criteria" className="text-xs font-bold text-slate-700 whitespace-nowrap">
-            Optimization Heuristic:
-          </label>
-          <select
-            id="heuristic-criteria"
-            value={rankingCriteria}
-            onChange={(e) => {
-              setRankingCriteria(e.target.value as RankingCriteria);
-              setPage(1);
-              setSelectedIndex(0);
-            }}
-            className="h-8 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-[#2455a3]"
-          >
-            <option value="balanced">Balanced (Optimal gaps between classes)</option>
-            <option value="earliest_finish">Earliest Finish (Compact daily schedules)</option>
-            <option value="no_morning">Late Start (Avoid 8:00 AM periods)</option>
-            <option value="max_free_days">Maximum Free Days (Cluster periods into fewer days)</option>
-          </select>
         </div>
       </div>
 
@@ -446,46 +532,41 @@ const Results = () => {
             <div
               key={item.timetableId}
               onClick={() => setSelectedIndex(currentIndex)}
-              className={`cursor-pointer p-4 rounded bg-white border transition-colors shadow-card ${
+              className={`cursor-pointer p-4 rounded bg-white dark:bg-slate-900 border transition-colors shadow-card ${
                 isActive
-                  ? "border-[#2455a3] border-t-4 border-t-[#2455a3] bg-blue-50/20"
-                  : "border-slate-300 hover:border-slate-400"
+                  ? "border-[#2455a3] border-t-4 border-t-[#2455a3] bg-blue-50/20 dark:bg-blue-950/30 ring-2 ring-[#2455a3]/40"
+                  : "border-slate-300 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-700"
               }`}
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                      Option {globalIndex}
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Score: {item.currentScore}/100
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900 mt-1 flex items-center gap-1.5">
-                    <Star className={`w-3.5 h-3.5 ${isActive ? "text-[#2455a3] fill-[#2455a3]" : "text-slate-400"}`} />
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
+                    Option {globalIndex}
+                  </span>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-1.5">
+                    <Star className={`w-3.5 h-3.5 ${isActive ? "text-[#2455a3] dark:text-blue-400 fill-[#2455a3] dark:fill-blue-400" : "text-slate-400"}`} />
                     <span>Combination {globalIndex}</span>
                   </h3>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   {isActive && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-[#2455a3] border border-blue-200">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-[#2455a3] dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                       Selected
                     </span>
                   )}
                   {detectTimetableShift(item) === "Morning" ? (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#2455a3] border border-blue-200">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/50 text-[#2455a3] dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                       Morning (A1 / L31+)
                     </span>
                   ) : (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                       Evening (A2 / L1+)
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
+              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
                 <div className="flex items-center gap-1.5">
                   <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
                   <span>Free Days: {item.features?.totalFreeDays ?? 0}</span>
@@ -495,30 +576,24 @@ const Results = () => {
                   <span>Starts: {item.features?.earliestStartTime || item.features?.latestStartTime || "--"}</span>
                 </div>
               </div>
-
-              {/* Real Heuristic Breakdown */}
-              <div className="mt-2.5 pt-2 border-t border-dashed border-slate-200 text-[11px] text-slate-600 leading-snug">
-                <span className="font-semibold text-slate-700">Criteria: </span>
-                <span>{item.currentSummary}</span>
-              </div>
             </div>
           );
         })}
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex items-center justify-between mb-6 bg-white border border-slate-300 rounded p-2.5 shadow-sm text-xs">
+      <div className="flex items-center justify-between mb-6 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded p-2.5 shadow-sm text-xs">
         <Button
           variant="outline"
           size="sm"
           disabled={page === 1}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
-          className="border-slate-300 text-xs rounded h-8"
+          className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs rounded h-8"
         >
           <ChevronLeft className="w-3.5 h-3.5 mr-1" />
           Previous
         </Button>
-        <p className="text-slate-600 font-medium">
+        <p className="text-slate-600 dark:text-slate-400 font-medium">
           Showing page {page} of {totalPages}
         </p>
         <Button
@@ -526,7 +601,7 @@ const Results = () => {
           size="sm"
           disabled={page === totalPages}
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          className="border-slate-300 text-xs rounded h-8"
+          className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs rounded h-8"
         >
           Next
           <ChevronRight className="w-3.5 h-3.5 ml-1" />
@@ -535,36 +610,49 @@ const Results = () => {
 
       {/* Detailed VTOP Weekly Slot Table */}
       {selectedTimetable && (
-        <div className="bg-white border border-slate-300 rounded shadow-card p-5 mb-8">
-          <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200">
+        <div ref={timetableCardRef} className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
             <div>
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Weekly Timetable Grid: Combination {selectedIndex + 1}
               </h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                 Shift:{" "}
-                <span className="font-bold text-[#2455a3]">
+                <span className="font-bold text-[#2455a3] dark:text-blue-400">
                   {detectTimetableShift(selectedTimetable)} Shift
                 </span>
                 {" "}• {detectTimetableShift(selectedTimetable) === "Morning" ? "Theory 08:00 - 13:00 (A1 series) & Labs 14:00 - 19:30 (L31 to L60)" : "Labs 08:00 - 13:20 (L1 to L30) & Theory 14:00 - 19:00 (A2 series)"}
               </p>
             </div>
-            <span className="text-xs text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200 font-semibold flex items-center gap-1">
-              <CheckCircle className="w-3.5 h-3.5" />
-              <span>100% Conflict-Free</span>
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded border border-emerald-200 dark:border-emerald-800 font-semibold flex items-center gap-1">
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>100% Conflict-Free</span>
+              </span>
+
+              <Button
+                type="button"
+                onClick={handleDownloadImage}
+                disabled={downloading}
+                data-html2canvas-ignore="true"
+                className="h-8 px-3 text-xs font-bold text-white bg-[#2455a3] hover:bg-[#1b4b8a] dark:bg-blue-600 dark:hover:bg-blue-500 border-none rounded shadow-sm flex items-center gap-1.5 transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>{downloading ? "Exporting PNG..." : "Download as Image"}</span>
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-[1300px] w-full border-collapse text-xs border border-slate-300">
+            <table className="min-w-[1300px] w-full border-collapse text-xs border border-slate-300 dark:border-slate-800">
               <tbody>
                 {/* Theory Hours Header Row */}
                 <tr>
-                  <th className="border border-slate-300 bg-[#2455a3] text-white font-bold p-2 text-center min-w-[90px]">
+                  <th className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-bold p-2 text-center min-w-[90px]">
                     THEORY HOURS
                   </th>
                   {MORNING_COLUMNS.map((col) => (
-                    <th key={`th-m-${col.key}`} className="border border-slate-300 bg-[#2455a3] text-white font-semibold p-2 min-w-[95px] text-center">
+                    <th key={`th-m-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-semibold p-2 min-w-[95px] text-center">
                       {col.theory ? (
                         <div className="leading-tight text-[11px]">
                           <div>{col.theory.start}</div>
@@ -574,11 +662,11 @@ const Results = () => {
                       ) : null}
                     </th>
                   ))}
-                  <th className="border border-slate-300 bg-[#d4ac0d] text-slate-900 font-bold w-12 text-center" rowSpan={2}>
+                  <th className="border border-slate-300 dark:border-slate-700 bg-[#d4ac0d] text-slate-900 font-bold w-12 text-center" rowSpan={2}>
                     LUNCH
                   </th>
                   {EVENING_COLUMNS.map((col) => (
-                    <th key={`th-e-${col.key}`} className="border border-slate-300 bg-[#2455a3] text-white font-semibold p-2 min-w-[95px] text-center">
+                    <th key={`th-e-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#2455a3] text-white font-semibold p-2 min-w-[95px] text-center">
                       {col.theory ? (
                         <div className="leading-tight text-[11px]">
                           <div>{col.theory.start}</div>
@@ -592,11 +680,11 @@ const Results = () => {
 
                 {/* Lab Hours Header Row */}
                 <tr>
-                  <th className="border border-slate-300 bg-[#1b4b8a] text-white font-bold p-2 text-center">
+                  <th className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-bold p-2 text-center">
                     LAB HOURS
                   </th>
                   {MORNING_COLUMNS.map((col) => (
-                    <th key={`lh-m-${col.key}`} className="border border-slate-300 bg-[#1b4b8a] text-white font-semibold p-2 min-w-[95px] text-center">
+                    <th key={`lh-m-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-semibold p-2 min-w-[95px] text-center">
                       <div className="leading-tight text-[11px]">
                         <div>{col.lab.start}</div>
                         <div>to</div>
@@ -605,7 +693,7 @@ const Results = () => {
                     </th>
                   ))}
                   {EVENING_COLUMNS.map((col) => (
-                    <th key={`lh-e-${col.key}`} className="border border-slate-300 bg-[#1b4b8a] text-white font-semibold p-2 min-w-[95px] text-center">
+                    <th key={`lh-e-${col.key}`} className="border border-slate-300 dark:border-slate-700 bg-[#1b4b8a] text-white font-semibold p-2 min-w-[95px] text-center">
                       <div className="leading-tight text-[11px]">
                         <div>{col.lab.start}</div>
                         <div>to</div>
@@ -617,18 +705,24 @@ const Results = () => {
 
                 {/* Day Rows */}
                 {WEEK_DAYS.map((day, dayIdx) => (
-                  <tr key={day} className="hover:bg-slate-50/50">
-                    <th className="border border-slate-300 bg-slate-100 text-slate-800 font-bold p-2 text-center">
+                  <tr key={day} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                    <th className="border border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold p-2 text-center">
                       {DAY_SHORT[day]}
                     </th>
                     {MORNING_COLUMNS.map((col, colIdx) => {
                       const theory = getTheoryEntry(day, col.theory);
                       const lab = getLabEntry(day, col.lab);
                       const hasCourse = Boolean(theory || lab);
+                      const primaryEntry = theory || lab;
+                      const cellTheme = primaryEntry ? getCourseTheme(primaryEntry.courseCode) : null;
                       return (
                         <td
                           key={`${day}-m-${col.key}`}
-                          className={`border border-slate-300 p-1.5 align-top ${hasCourse ? "bg-blue-50/70" : "bg-white"}`}
+                          className={`border border-slate-300 dark:border-slate-800 p-1.5 align-top transition-colors ${
+                            hasCourse
+                              ? (cellTheme?.tdBg || "bg-blue-50/90 dark:bg-blue-950/40")
+                              : "bg-slate-50/60 dark:bg-slate-900/60"
+                          }`}
                         >
                           {renderCellContent(day, colIdx, "morning", theory, lab)}
                         </td>
@@ -637,7 +731,7 @@ const Results = () => {
                     {dayIdx === 0 && (
                       <th
                         rowSpan={WEEK_DAYS.length}
-                        className="border border-slate-300 bg-amber-50 text-amber-800 font-bold w-12 tracking-widest text-center"
+                        className="border border-slate-300 dark:border-slate-800 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 font-bold w-12 tracking-widest text-center"
                       >
                         <div className="flex flex-col items-center justify-center gap-1 text-[11px]">
                           {"LUNCH".split("").map((char, idx) => (
@@ -650,10 +744,16 @@ const Results = () => {
                       const theory = getTheoryEntry(day, col.theory);
                       const lab = getLabEntry(day, col.lab);
                       const hasCourse = Boolean(theory || lab);
+                      const primaryEntry = theory || lab;
+                      const cellTheme = primaryEntry ? getCourseTheme(primaryEntry.courseCode) : null;
                       return (
                         <td
                           key={`${day}-e-${col.key}`}
-                          className={`border border-slate-300 p-1.5 align-top ${hasCourse ? "bg-blue-50/70" : "bg-white"}`}
+                          className={`border border-slate-300 dark:border-slate-800 p-1.5 align-top transition-colors ${
+                            hasCourse
+                              ? (cellTheme?.tdBg || "bg-blue-50/90 dark:bg-blue-950/40")
+                              : "bg-slate-50/60 dark:bg-slate-900/60"
+                          }`}
                         >
                           {renderCellContent(day, colIdx, "evening", theory, lab)}
                         </td>
@@ -664,6 +764,37 @@ const Results = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Course Color Legend */}
+          {uniqueCourses.length > 0 && (
+            <div className="mt-4 pt-3.5 border-t border-slate-200 dark:border-slate-800">
+              <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                <span>Allocated Course Color Legend:</span>
+                <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                  (Classes are color-coded across all slots)
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {uniqueCourses.map((c) => {
+                  const theme = getCourseTheme(c.code);
+                  return (
+                    <div
+                      key={c.code}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border-2 ${theme.border} ${theme.cardBg} shadow-xs`}
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${theme.slotBadge}`} />
+                      <span className={`font-bold ${theme.codeText}`}>{c.code}</span>
+                      {c.name && (
+                        <span className={`text-[11px] truncate max-w-[200px] ${theme.titleText}`}>
+                          - {c.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </DashboardLayout>

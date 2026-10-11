@@ -250,12 +250,45 @@ function getTimeSlots(slotString) {
  */
 function isLabCourse(course) {
     if (!course) return false;
+    const slotCodes = parseSlotString(course.slot || '');
+    const hasLabSlot = slotCodes.some((code) => /^L\d+$/i.test(code));
+    if (hasLabSlot) return true;
+    const hasTheorySlot = slotCodes.some((code) => /^[A-G]/i.test(code));
+    if (hasTheorySlot) return false;
     const type = (course.courseType || '').toString().toUpperCase();
     if (type.includes('LAB')) return true;
+    if (type.includes('THEORY')) return false;
     const code = (course.courseCode || '').toString().toUpperCase();
-    if (code.endsWith('P')) return true;
-    const slotCodes = parseSlotString(course.slot || '');
-    return slotCodes.some((code) => /^L\d+$/i.test(code));
+    return code.endsWith('P');
+}
+
+/**
+ * Convert a lab slot string to the appropriate shift (batch):
+ * - Morning batch: Theory is morning (*1), Labs are evening (L31 to L60).
+ * - Evening batch: Theory is evening (*2), Labs are morning (L1 to L30).
+ * If a lab slot is in the opposite shift, convert it by adding/subtracting 30:
+ * L(n) <-> L(n + 30).
+ */
+function convertLabSlotForBatch(slotString, targetBatch) {
+    if (!slotString || typeof slotString !== 'string') return slotString;
+    const codes = parseSlotString(slotString);
+    if (codes.length === 0) return slotString;
+
+    const converted = codes.map((code) => {
+        const norm = code.toUpperCase();
+        const m = norm.match(/^L(\d+)$/i);
+        if (!m) return code;
+        const num = parseInt(m[1], 10);
+        if (targetBatch === 'Morning' && num >= 1 && num <= 30) {
+            return `L${num + 30}`;
+        }
+        if (targetBatch === 'Evening' && num >= 31 && num <= 60) {
+            return `L${num - 30}`;
+        }
+        return code;
+    });
+
+    return converted.join('+');
 }
 
 function isMorningTheorySlot(slotString) {
@@ -396,6 +429,7 @@ module.exports = {
     isMorningLabSlot,
     isEveningLabSlot,
     filterCoursesByBatch,
+    convertLabSlotForBatch,
     validateTimetableBatchPurity,
     getTimetableBatch
 };

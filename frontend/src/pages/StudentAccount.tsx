@@ -59,54 +59,54 @@ const StudentAccount = () => {
       <SEO title="Student Account" description="Manage your VIT student registration number, profile name, and account security settings." />
 
       {/* Institutional Page Title */}
-      <div className="mb-6 bg-white border border-slate-300 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
+      <div className="mb-6 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[11px] font-bold text-[#2455a3] uppercase tracking-wider">
+          <span className="text-[11px] font-bold text-[#2455a3] dark:text-blue-400 uppercase tracking-wider">
             Student Profile Registry
           </span>
-          <span className="text-slate-300">•</span>
-          <span className="text-xs text-slate-500">VTOP Academic Account</span>
+          <span className="text-slate-300 dark:text-slate-700">•</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">VTOP Academic Account</span>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 leading-tight">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
           Student Profile &amp; Account Settings
         </h1>
-        <p className="text-slate-600 mt-1 text-xs">
+        <p className="text-slate-600 dark:text-slate-400 mt-1 text-xs">
           Manage your VIT registered name, registration number, and authentication credentials.
         </p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Profile Card */}
-        <div className="bg-white border border-slate-300 rounded shadow-card p-5">
-          <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-200">
-            <User className="w-4 h-4 text-[#2455a3]" />
-            <h2 className="text-sm font-bold text-slate-900">Student Profile Information</h2>
+        <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5">
+          <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
+            <User className="w-4 h-4 text-[#2455a3] dark:text-blue-400" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Student Profile Information</h2>
           </div>
 
           <form onSubmit={handleProfileSave} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs text-slate-700 uppercase tracking-wide font-bold">Full Name</label>
+              <label className="text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wide font-bold">Full Name</label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Student Name"
-                className="h-9 text-xs rounded border-slate-300 focus-visible:ring-[#2455a3]"
+                className="h-9 text-xs rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus-visible:ring-[#2455a3]"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-slate-700 uppercase tracking-wide font-bold">VIT Student Email</label>
+              <label className="text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wide font-bold">VIT Student Email</label>
               <Input
                 value={user?.vitEmail || ""}
                 disabled
-                className="h-9 text-xs rounded border-slate-300 bg-slate-100 text-slate-600 cursor-not-allowed font-mono"
+                className="h-9 text-xs rounded border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 cursor-not-allowed font-mono"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-slate-700 uppercase tracking-wide font-bold">Registration Number</label>
+              <label className="text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wide font-bold">Registration Number</label>
               <Input
                 value={registrationNumber}
                 onChange={(e) => setRegistrationNumber(e.target.value.toUpperCase())}
-                className="h-9 text-xs font-mono uppercase rounded border-slate-300 focus-visible:ring-[#2455a3]"
+                className="h-9 text-xs font-mono uppercase rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus-visible:ring-[#2455a3]"
                 placeholder="e.g. 23BCE1042"
               />
             </div>
@@ -122,33 +122,33 @@ const StudentAccount = () => {
         </div>
 
         {/* Security Card */}
-        <div className="bg-white border border-slate-300 rounded shadow-card p-5">
-          <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-200">
-            <ShieldCheck className="w-4 h-4 text-[#2455a3]" />
-            <h2 className="text-sm font-bold text-slate-900">Account Security &amp; Password</h2>
+        <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5">
+          <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
+            <ShieldCheck className="w-4 h-4 text-[#2455a3] dark:text-blue-400" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Account Security &amp; Password</h2>
           </div>
 
           <form onSubmit={handlePasswordSave} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs text-slate-700 uppercase tracking-wide font-bold">Current Password</label>
+              <label className="text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wide font-bold">Current Password</label>
               <Input
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
-                className="h-9 text-xs rounded border-slate-300 focus-visible:ring-[#2455a3]"
+                className="h-9 text-xs rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus-visible:ring-[#2455a3]"
                 placeholder="••••••••"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-slate-700 uppercase tracking-wide font-bold">New Password</label>
+              <label className="text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wide font-bold">New Password</label>
               <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 minLength={6}
                 required
-                className="h-9 text-xs rounded border-slate-300 focus-visible:ring-[#2455a3]"
+                className="h-9 text-xs rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus-visible:ring-[#2455a3]"
                 placeholder="Minimum 6 characters"
               />
             </div>
