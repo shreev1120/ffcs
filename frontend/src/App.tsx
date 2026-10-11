@@ -25,6 +25,8 @@ const Terms = lazy(() => import("./pages/Terms"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 
+import { ThemeProvider } from "./context/ThemeContext";
+
 const PageLoader = () => (
   <div className="min-h-[50vh] flex items-center justify-center">
     <div className="w-8 h-8 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -36,11 +38,12 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <HashRouter>
-          <Suspense fallback={<PageLoader />}>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <HashRouter>
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
@@ -113,7 +116,8 @@ const App = () => (
           <StickyMobileCTA />
           <CookieBanner />
         </HashRouter>
-      </TooltipProvider>
+        </TooltipProvider>
+      </ThemeProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

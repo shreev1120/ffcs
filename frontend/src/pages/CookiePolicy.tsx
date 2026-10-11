@@ -30,7 +30,7 @@ export const CookiePolicy = () => {
               Cookie Policy
             </h1>
             <p className="text-slate-500 text-xs mt-1">
-              Applicable for VIT Academic Year 2025-26 • Zero Advertising Cookies
+              Applicable for VIT Academic Session • Zero Advertising Cookies
             </p>
           </div>
         </div>

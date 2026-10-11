@@ -30,7 +30,7 @@ export const PrivacyPolicy = () => {
               Privacy Policy &amp; Data Transparency
             </h1>
             <p className="text-slate-500 text-xs mt-1">
-              Last Updated: Fall Semester 2025-26 • Effective Date: January 1, 2026
+              Last Updated: Fall Semester • Effective Date: January 1, 2026
             </p>
           </div>
         </div>

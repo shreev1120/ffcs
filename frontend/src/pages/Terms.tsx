@@ -30,7 +30,7 @@ export const Terms = () => {
               Terms of Service
             </h1>
             <p className="text-slate-500 text-xs mt-1">
-              Applicable for Fall and Winter 2025-26 Academic Cycles • Vellore Campus
+              Applicable for Fall and Winter Academic Cycles • Vellore Campus
             </p>
           </div>
         </div>

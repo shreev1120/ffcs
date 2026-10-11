@@ -13,7 +13,8 @@ const semesterConfigSchema = new mongoose.Schema({
     },
     academicYear: {
         type: String,
-        required: true,
+        required: false,
+        default: 'Current',
         trim: true
     },
     courses: [{

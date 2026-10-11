@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import SEO from "@/components/common/SEO";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/api";
 
 type TimetableEntry = {
   courseCode: string;
@@ -100,15 +102,145 @@ const TEMPLATE_CELL_LABELS: Record<string, { morning: string[]; evening: string[
 const isLabEntry = (entry: TimetableEntry) =>
   entry.slot?.toUpperCase().startsWith("L") || entry.courseType?.toUpperCase().includes("LAB");
 
+type RankingCriteria = "balanced" | "earliest_finish" | "no_morning" | "max_free_days";
+
+function parseTimeToMinutes(timeStr?: string): number {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(":").map(Number);
+  return (parts[0] || 0) * 60 + (parts[1] || 0);
+}
+
+function computeTimetableHeuristic(
+  schedule: Record<string, TimetableEntry[]>,
+  features: TimetableFeatures | undefined,
+  criteria: RankingCriteria
+): { score: number; summary: string } {
+  const activeDays = Object.keys(schedule || {}).filter((d) => schedule[d] && schedule[d].length > 0);
+  const freeDays = features?.totalFreeDays ?? Math.max(0, 5 - activeDays.length);
+
+  switch (criteria) {
+    case "earliest_finish": {
+      let totalEndMinutes = 0;
+      activeDays.forEach((d) => {
+        const classes = schedule[d];
+        const lastClass = classes[classes.length - 1];
+        totalEndMinutes += parseTimeToMinutes(lastClass?.endTime);
+      });
+      const avgEnd = activeDays.length > 0 ? totalEndMinutes / activeDays.length : 1140;
+      const score = Math.max(20, Math.min(100, Math.round(100 - ((avgEnd - 780) / 390) * 75) + freeDays * 5));
+      const avgH = Math.floor(avgEnd / 60);
+      const avgM = Math.round(avgEnd % 60);
+      return {
+        score,
+        summary: `Concludes by ${String(avgH).padStart(2, "0")}:${String(avgM).padStart(2, "0")} daily (${freeDays} free days)`,
+      };
+    }
+    case "no_morning": {
+      let earlyDays = 0;
+      let lateDays = 0;
+      activeDays.forEach((d) => {
+        const classes = schedule[d];
+        const first = classes[0];
+        const startMin = parseTimeToMinutes(first?.startTime);
+        if (startMin <= 480) earlyDays++;
+        else if (startMin >= 590) lateDays++;
+      });
+      const score = Math.max(20, Math.min(100, 100 - earlyDays * 22 + lateDays * 6));
+      return {
+        score,
+        summary: earlyDays === 0
+          ? `Zero 08:00 AM periods (${lateDays} days starting 09:50 AM or later)`
+          : `${earlyDays} days starting at 08:00 AM; ${lateDays} late starts`,
+      };
+    }
+    case "max_free_days": {
+      const score = Math.min(100, 48 + freeDays * 26);
+      return {
+        score,
+        summary: `${freeDays} full free days; periods grouped into ${activeDays.length} weekdays`,
+      };
+    }
+    case "balanced":
+    default: {
+      let deadGaps = 0;
+      activeDays.forEach((d) => {
+        const classes = schedule[d];
+        for (let i = 0; i < classes.length - 1; i++) {
+          const gap = parseTimeToMinutes(classes[i + 1]?.startTime) - parseTimeToMinutes(classes[i]?.endTime);
+          if (gap > 75) deadGaps++;
+        }
+      });
+      const score = Math.max(30, Math.min(100, 95 - deadGaps * 12));
+      return {
+        score,
+        summary: deadGaps === 0
+          ? `Optimal gap transitions with minimal dead hours (${freeDays} free days)`
+          : `Balanced study gaps with ${deadGaps} break windows`,
+      };
+    }
+  }
+}
+
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const timetableData = (location.state as { timetableData?: TimetableData } | null)?.timetableData;
+  const { user } = useAuth();
+
+  const [timetableData, setTimetableData] = useState<TimetableData | null>(() => {
+    if (location.state && (location.state as any).timetableData) {
+      return (location.state as any).timetableData;
+    }
+    try {
+      const cached = localStorage.getItem("vtop_ffcs_latest_timetable");
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
 
   const passedBatch = (location.state as { selectedBatch?: "Morning" | "Evening" } | null)?.selectedBatch;
-  const [batchFilter, setBatchFilter] = useState<"All" | "Morning" | "Evening">(passedBatch || "All");
+  const [batchFilter, setBatchFilter] = useState<"All" | "Morning" | "Evening">(() => {
+    if (passedBatch) return passedBatch;
+    try {
+      const cachedBatch = localStorage.getItem("vtop_ffcs_selected_batch");
+      if (cachedBatch === "Morning" || cachedBatch === "Evening") return cachedBatch;
+    } catch {}
+    return "All";
+  });
+  const [rankingCriteria, setRankingCriteria] = useState<RankingCriteria>(
+    user?.preferences?.rankingCriteria || "balanced"
+  );
   const [page, setPage] = useState(1);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // If timetable data is not yet in state, fetch the latest saved timetables from the user's account
+  useEffect(() => {
+    if (timetableData && timetableData.timetables?.length) return;
+
+    let isMounted = true;
+    apiRequest<{ timetables: any[]; timetablesCount: number }>("/timetable/my/latest")
+      .then((res) => {
+        if (!isMounted || !res?.timetables?.length) return;
+        const loaded: TimetableData = {
+          timetables: res.timetables,
+          timetablesCount: res.timetablesCount || res.timetables.length,
+        };
+        setTimetableData(loaded);
+        try {
+          localStorage.setItem("vtop_ffcs_latest_timetable", JSON.stringify(loaded));
+        } catch {}
+      })
+      .catch((err) => {
+        console.warn("Could not retrieve saved timetables:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [timetableData]);
 
   const detectTimetableShift = (tt: Timetable): "Morning" | "Evening" => {
     if (tt.batch === "Morning" || tt.batch === "Evening") return tt.batch;
@@ -120,9 +252,24 @@ const Results = () => {
 
   const filteredTimetables = useMemo(() => {
     const list = timetableData?.timetables || [];
-    if (batchFilter === "All") return list;
-    return list.filter((tt) => detectTimetableShift(tt) === batchFilter);
-  }, [timetableData, batchFilter]);
+    const shiftFiltered = batchFilter === "All"
+      ? list
+      : list.filter((tt) => detectTimetableShift(tt) === batchFilter);
+
+    // Score dynamically by chosen criteria
+    const scoredList = shiftFiltered.map((tt) => {
+      const heuristic = computeTimetableHeuristic(tt.schedule, tt.features, rankingCriteria);
+      return {
+        ...tt,
+        currentScore: heuristic.score,
+        currentSummary: heuristic.summary,
+      };
+    });
+
+    // Legitimate sorting: highest heuristic score first
+    scoredList.sort((a, b) => b.currentScore - a.currentScore);
+    return scoredList;
+  }, [timetableData, batchFilter, rankingCriteria]);
 
   const totalTimetables = filteredTimetables.length;
   const totalPages = Math.max(1, Math.ceil(totalTimetables / PAGE_SIZE));
@@ -224,7 +371,7 @@ const Results = () => {
                 VTOP Course Timetable
               </span>
               <span className="text-slate-300">•</span>
-              <span className="text-xs text-slate-500">Fall Semester 2025-26</span>
+              <span className="text-xs text-slate-500">Fall Semester</span>
             </div>
             <h1 className="text-2xl font-bold text-slate-900">
               Generated Timetable Combinations ({totalTimetables} Options)
@@ -239,9 +386,9 @@ const Results = () => {
         </div>
       </div>
 
-      {/* Academic Shift Filter Tabs */}
+      {/* Academic Shift Filter Tabs & Heuristic Criteria Selector */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-300 rounded p-3 shadow-sm">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-slate-700 mr-1">Shift Category:</span>
           {(["All", "Morning", "Evening"] as const).map((filter) => {
             const isActive = batchFilter === filter;
@@ -265,8 +412,27 @@ const Results = () => {
             );
           })}
         </div>
-        <div className="text-[11px] text-slate-500 font-medium">
-          Zero mixed slots: Every timetable follows pure VIT shift separation rules
+
+        {/* Live Optimization Heuristic Switcher */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="heuristic-criteria" className="text-xs font-bold text-slate-700 whitespace-nowrap">
+            Optimization Heuristic:
+          </label>
+          <select
+            id="heuristic-criteria"
+            value={rankingCriteria}
+            onChange={(e) => {
+              setRankingCriteria(e.target.value as RankingCriteria);
+              setPage(1);
+              setSelectedIndex(0);
+            }}
+            className="h-8 rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-[#2455a3]"
+          >
+            <option value="balanced">Balanced (Optimal gaps between classes)</option>
+            <option value="earliest_finish">Earliest Finish (Compact daily schedules)</option>
+            <option value="no_morning">Late Start (Avoid 8:00 AM periods)</option>
+            <option value="max_free_days">Maximum Free Days (Cluster periods into fewer days)</option>
+          </select>
         </div>
       </div>
 
@@ -288,10 +454,15 @@ const Results = () => {
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                    Option {globalIndex}
-                  </p>
-                  <h3 className="text-sm font-bold text-slate-900 mt-0.5 flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                      Option {globalIndex}
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Score: {item.currentScore}/100
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 mt-1 flex items-center gap-1.5">
                     <Star className={`w-3.5 h-3.5 ${isActive ? "text-[#2455a3] fill-[#2455a3]" : "text-slate-400"}`} />
                     <span>Combination {globalIndex}</span>
                   </h3>
@@ -313,6 +484,7 @@ const Results = () => {
                   )}
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
                 <div className="flex items-center gap-1.5">
                   <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
@@ -320,8 +492,14 @@ const Results = () => {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Starts: {item.features?.latestStartTime || "--"}</span>
+                  <span>Starts: {item.features?.earliestStartTime || item.features?.latestStartTime || "--"}</span>
                 </div>
+              </div>
+
+              {/* Real Heuristic Breakdown */}
+              <div className="mt-2.5 pt-2 border-t border-dashed border-slate-200 text-[11px] text-slate-600 leading-snug">
+                <span className="font-semibold text-slate-700">Criteria: </span>
+                <span>{item.currentSummary}</span>
               </div>
             </div>
           );

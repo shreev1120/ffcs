@@ -17,6 +17,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import AppLogo from "@/components/common/AppLogo";
+import ThemeToggle from "@/components/common/ThemeToggle";
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -50,7 +51,7 @@ const Header = () => {
           <div className="hidden lg:flex items-center gap-4">
             <div className="text-right border-r border-white/20 pr-4">
               <p className="text-xs font-bold text-white tracking-wide">
-                FALL SEMESTER 2025-26
+                FALL SEMESTER
               </p>
               <p className="text-[11px] text-white/80">
                 Course Registration &amp; Timetable System
@@ -84,6 +85,9 @@ const Header = () => {
                 </div>
               </Link>
 
+              {/* Theme Toggle Button */}
+              <ThemeToggle variant="icon" />
+
               <button
                 onClick={logout}
                 title="Log Out"
@@ -94,8 +98,9 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Mobile Menu Trigger */}
+          {/* Mobile Menu Trigger & Quick Theme Switch */}
           <div className="flex items-center gap-2 lg:hidden">
+            <ThemeToggle variant="icon" />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}

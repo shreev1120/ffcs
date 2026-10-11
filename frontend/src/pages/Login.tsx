@@ -218,7 +218,7 @@ const Login = () => {
           </div>
 
           <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Fall Semester 2025-26</span>
+            <span>Fall Semester</span>
             <div className="flex items-center gap-3">
               <Link to="/privacy-policy" className="hover:text-slate-800">Privacy Policy</Link>
               <span>•</span>

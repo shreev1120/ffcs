@@ -16,7 +16,6 @@ const GlobalPreferences = () => {
   const [rankingCriteria, setRankingCriteria] = useState<UserPreferences["rankingCriteria"]>(
     user?.preferences.rankingCriteria || "balanced",
   );
-  const [maxTimetables, setMaxTimetables] = useState<number>(user?.preferences.maxTimetables || 12);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (event: FormEvent) => {
@@ -31,7 +30,11 @@ const GlobalPreferences = () => {
     }
     setSaving(true);
     try {
-      await updatePreferences({ batchPreference, rankingCriteria, maxTimetables });
+      await updatePreferences({
+        batchPreference,
+        rankingCriteria,
+        maxTimetables: user?.preferences.maxTimetables || 20,
+      });
       toast({ title: "Preferences saved", description: "Global slot preferences updated successfully." });
     } catch (error) {
       toast({
@@ -116,23 +119,6 @@ const GlobalPreferences = () => {
               <option value="no_morning">Late Start (Avoid 8:00 AM periods)</option>
               <option value="max_free_days">Maximum Free Days (Cluster periods into fewer days)</option>
             </select>
-          </section>
-
-          <section>
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-              Maximum Schedule Combinations
-            </h2>
-            <input
-              type="range"
-              min={4}
-              max={60}
-              value={maxTimetables}
-              onChange={(e) => setMaxTimetables(Number(e.target.value))}
-              className="w-full accent-[#2455a3]"
-            />
-            <p className="text-xs text-slate-600 mt-1">
-              Generate up to <span className="font-bold text-[#2455a3]">{maxTimetables}</span> clash-free combinations per calculation.
-            </p>
           </section>
 
           <div className="pt-2">

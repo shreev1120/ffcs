@@ -81,14 +81,15 @@ async function resolveUserId(req) {
     if (req.user && req.user._id) {
         return req.user._id;
     }
+    if (req.body && req.body.userId && mongoose.Types.ObjectId.isValid(req.body.userId)) {
+        const existing = await User.findById(req.body.userId);
+        if (existing) return existing._id;
+    }
     if (process.env.NODE_ENV !== 'production') {
         const demoUser = await User.findOne({
             vitEmail: { $in: ['demo.student@vitstudent.ac.in', 'student@vitstudent.ac.in'] }
         });
         if (demoUser) return demoUser._id;
-        if (req.body && req.body.userId && mongoose.Types.ObjectId.isValid(req.body.userId)) {
-            return req.body.userId;
-        }
     }
     return null;
 }
@@ -122,8 +123,8 @@ router.post('/upload-excel', optionalAuth, upload.single('excelFile'), async (re
             return res.status(404).json({ error: 'User account not found' });
         }
 
-        const semester = typeof req.body.semester === 'string' ? req.body.semester.slice(0, 50) : 'Fall 2024';
-        const academicYear = typeof req.body.academicYear === 'string' ? req.body.academicYear.slice(0, 20) : '2024-2025';
+        const semester = typeof req.body.semester === 'string' && req.body.semester.trim() ? req.body.semester.slice(0, 50) : 'Fall Semester';
+        const academicYear = typeof req.body.academicYear === 'string' && req.body.academicYear.trim() ? req.body.academicYear.slice(0, 20) : 'Current';
 
         // Create semester config
         const semesterConfig = new SemesterConfig({
@@ -259,11 +260,24 @@ router.post('/generate', optionalAuth, async (req, res) => {
             return res.status(400).json({ error: 'semesterConfigId or valid courses array is required' });
         }
 
-        const effectivePreferences = preferences || (semesterConfig ? semesterConfig.preferences : {
-            batchPreference: 'Morning',
-            rankingCriteria: 'balanced',
-            maxTimetables: 10
-        });
+        let userPrefs = {};
+        if (req.user && req.user.preferences) {
+            userPrefs = req.user.preferences;
+        } else if (userId) {
+            const userDoc = await User.findById(userId);
+            if (userDoc && userDoc.preferences) {
+                userPrefs = userDoc.preferences;
+            }
+        }
+
+        const effectivePreferences = {
+            batchPreference: preferences?.batchPreference || semesterConfig?.preferences?.batchPreference || userPrefs.batchPreference || 'Morning',
+            rankingCriteria: preferences?.rankingCriteria || semesterConfig?.preferences?.rankingCriteria || userPrefs.rankingCriteria || 'balanced',
+            maxTimetables: Number(preferences?.maxTimetables || semesterConfig?.preferences?.maxTimetables || userPrefs.maxTimetables || 20),
+            avoidEarlyMorning: preferences?.avoidEarlyMorning ?? userPrefs.avoidEarlyMorning ?? false,
+            freeDayPreferred: preferences?.freeDayPreferred || userPrefs.freeDayPreferred || null,
+            preferredTheorySlots: preferences?.preferredTheorySlots || userPrefs.preferredTheorySlots || []
+        };
 
         if (!['Morning', 'Evening', 'Both'].includes(effectivePreferences.batchPreference)) {
             effectivePreferences.batchPreference = 'Morning';
@@ -271,6 +285,7 @@ router.post('/generate', optionalAuth, async (req, res) => {
 
         if (semesterConfig) {
             semesterConfig.status = 'processing';
+            semesterConfig.preferences = { ...semesterConfig.preferences, ...effectivePreferences };
             await semesterConfig.save();
         }
 
@@ -299,8 +314,8 @@ router.post('/generate', optionalAuth, async (req, res) => {
                 timetableId: tt.timetableId,
                 schedule: tt.schedule,
                 features: tt.features,
-                rank: index + 1,
-                rankingScore: 0
+                rank: tt.rank || (index + 1),
+                rankingScore: tt.rankingScore || 0
             }))
         });
 
@@ -343,6 +358,34 @@ router.post('/generate', optionalAuth, async (req, res) => {
     } catch (error) {
         console.error('Generation error:', error);
         res.status(500).json({ error: 'Failed to generate timetable' });
+    }
+});
+
+/**
+ * GET /api/timetable/my/latest
+ * Get latest saved timetables for the authenticated user
+ */
+router.get('/my/latest', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const latestGen = await GeneratedTimetable.findOne({ userId })
+            .populate('semesterConfigId')
+            .sort({ generatedAt: -1 });
+
+        if (!latestGen || !latestGen.timetables || latestGen.timetables.length === 0) {
+            return res.status(404).json({ message: 'No saved timetables found for this student.' });
+        }
+
+        res.json({
+            count: latestGen.timetables.length,
+            timetablesCount: latestGen.timetables.length,
+            timetables: latestGen.timetables,
+            generatedAt: latestGen.generatedAt,
+            semesterConfigId: latestGen.semesterConfigId
+        });
+    } catch (error) {
+        console.error('Fetch latest timetable error:', error);
+        res.status(500).json({ error: 'Failed to retrieve saved timetables' });
     }
 });
 

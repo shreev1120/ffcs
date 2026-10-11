@@ -19,8 +19,8 @@ const courseSchema = new mongoose.Schema({
     },
     courseType: {
         type: String,
-        enum: ['Theory', 'Lab', 'Project', 'Embedded Theory', 'Embedded Lab', 'Soft Skill'],
-        required: true
+        enum: ['Theory', 'Lab', 'Project', 'Embedded Theory', 'Embedded Lab', 'Soft Skill', 'Non-graded', 'Non-Graded', 'Online', 'Audit', 'General', 'Discipline'],
+        default: 'Theory'
     },
     slot: {
         type: String,

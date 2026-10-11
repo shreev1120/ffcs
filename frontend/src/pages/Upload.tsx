@@ -79,7 +79,7 @@ const Upload = () => {
     }
   };
 
-  const handleUpload = async (overrideBatch?: "Morning" | "Evening") => {
+  const handleUpload = async (overrideBatch?: unknown) => {
     if (honeypot.trim().length > 0) {
       setErrorMessage("Invalid bot submission.");
       return;
@@ -93,14 +93,19 @@ const Upload = () => {
       return;
     }
 
-    const effectiveBatchPreference = overrideBatch || batchPreference || "Morning";
+    const effectiveBatchPreference: "Morning" | "Evening" =
+      typeof overrideBatch === "string" && (overrideBatch === "Morning" || overrideBatch === "Evening")
+        ? overrideBatch
+        : (batchPreference === "Evening" ? "Evening" : "Morning");
 
     setIsUploading(true);
     setErrorMessage(null);
 
     const formData = new FormData();
     formData.append("excelFile", file);
-    formData.append("userId", user?.id || "");
+    if (user?.id) {
+      formData.append("userId", user.id);
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/timetable/upload-excel`, {
@@ -117,8 +122,10 @@ const Upload = () => {
 
       const rawCourses = data.courses || [];
       const courses = rawCourses.map((c: any) => ({
-        code: c.code || c.courseCode,
-        title: c.title || c.courseTitle || c.name,
+        code: c.courseCode || c.code,
+        courseCode: c.courseCode || c.code,
+        title: c.courseName || c.title || c.courseTitle || c.name || c.courseCode || c.code,
+        courseName: c.courseName || c.title || c.courseTitle || c.name || c.courseCode || c.code,
         credits: c.credits ? Number(c.credits) : 3,
         type: c.courseType || c.type || "Theory",
         courseType: c.courseType || c.type || "Theory",
@@ -138,6 +145,8 @@ const Upload = () => {
           courses,
           preferences: {
             batchPreference: effectiveBatchPreference,
+            rankingCriteria: user?.preferences?.rankingCriteria || "balanced",
+            maxTimetables: user?.preferences?.maxTimetables || 20,
             preferredTheorySlots: user?.preferences?.preferredTheorySlots || [],
             avoidEarlyMorning: user?.preferences?.avoidEarlyMorning || false,
             freeDayPreferred: user?.preferences?.freeDayPreferred || null,
@@ -155,6 +164,13 @@ const Upload = () => {
         title: "Timetables Generated",
         description: `Found ${genData.timetablesCount} valid ${effectiveBatchPreference} schedules with zero clashes.`,
       });
+
+      try {
+        localStorage.setItem("vtop_ffcs_latest_timetable", JSON.stringify(genData));
+        localStorage.setItem("vtop_ffcs_selected_batch", effectiveBatchPreference);
+      } catch (err) {
+        console.warn("Could not cache timetable to localStorage:", err);
+      }
 
       navigate("/results", { state: { timetableData: genData, selectedBatch: effectiveBatchPreference } });
     } catch (error: unknown) {
@@ -456,7 +472,7 @@ const Upload = () => {
               <Button
                 size="default"
                 disabled={!file || isUploading}
-                onClick={handleUpload}
+                onClick={() => handleUpload()}
                 className="w-full sm:flex-1 bg-[#2455a3] hover:bg-[#1b4b8a] text-white font-bold text-xs h-10 rounded shadow-sm gap-2"
               >
                 {isUploading ? (

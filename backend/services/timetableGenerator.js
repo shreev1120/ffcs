@@ -465,14 +465,27 @@ function createSchedule(courses) {
 }
 
 /**
+ * Convert HH:MM time string to minutes since midnight
+ * @param {string} timeStr
+ * @returns {number}
+ */
+function timeToMinutes(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return 0;
+    const parts = timeStr.split(':').map(Number);
+    return (parts[0] || 0) * 60 + (parts[1] || 0);
+}
+
+/**
  * Calculate timetable features for AI ranking
  * @param {object} schedule - Timetable schedule
  * @returns {object} Features object
  */
 function calculateFeatures(schedule) {
     const features = {
-        earliestFinishTime: '00:00',
-        latestStartTime: '23:59',
+        earliestFinishTime: '23:59',
+        latestFinishTime: '00:00',
+        earliestStartTime: '23:59',
+        latestStartTime: '00:00',
         totalFreeDays: 0,
         consecutiveClasses: 0,
         morningClassCount: 0,
@@ -481,29 +494,36 @@ function calculateFeatures(schedule) {
 
     let maxConsecutive = 0;
     let currentConsecutive = 0;
+    let hasClasses = false;
 
     Object.keys(schedule).forEach(day => {
         const classes = schedule[day];
 
-        if (classes.length === 0) {
+        if (!classes || classes.length === 0) {
             features.totalFreeDays++;
             currentConsecutive = 0;
         } else {
-            // Find earliest start and latest finish for the day
+            hasClasses = true;
             const dayStart = classes[0].startTime;
             const dayEnd = classes[classes.length - 1].endTime;
 
-            if (dayStart < features.latestStartTime) {
+            if (dayStart < features.earliestStartTime) {
+                features.earliestStartTime = dayStart;
+            }
+            if (dayStart > features.latestStartTime) {
                 features.latestStartTime = dayStart;
             }
 
-            if (dayEnd > features.earliestFinishTime) {
+            if (dayEnd > features.latestFinishTime) {
+                features.latestFinishTime = dayEnd;
+            }
+            if (dayEnd < features.earliestFinishTime) {
                 features.earliestFinishTime = dayEnd;
             }
 
             // Count morning vs evening classes
             classes.forEach(cls => {
-                const hour = parseInt(cls.startTime.split(':')[0]);
+                const hour = parseInt(cls.startTime.split(':')[0], 10);
                 if (hour < 12) {
                     features.morningClassCount++;
                 } else {
@@ -511,11 +531,17 @@ function calculateFeatures(schedule) {
                 }
             });
 
-            // Track consecutive class days
             currentConsecutive++;
             maxConsecutive = Math.max(maxConsecutive, currentConsecutive);
         }
     });
+
+    if (!hasClasses) {
+        features.earliestStartTime = '--';
+        features.latestStartTime = '--';
+        features.earliestFinishTime = '--';
+        features.latestFinishTime = '--';
+    }
 
     features.consecutiveClasses = maxConsecutive;
 
@@ -523,28 +549,143 @@ function calculateFeatures(schedule) {
 }
 
 /**
- * Generate timetables with full metadata
+ * Compute legitimate heuristic ranking score (0-100) based on selected criteria
+ * @param {object} schedule - Organized weekly schedule
+ * @param {object} features - Calculated timetable features
+ * @param {string} rankingCriteria - 'balanced' | 'earliest_finish' | 'no_morning' | 'max_free_days'
+ * @returns {{ score: number, rankingCriteria: string, summary: string }}
+ */
+function computeHeuristicScore(schedule, features, rankingCriteria = 'balanced') {
+    const activeDays = Object.keys(schedule).filter(day => schedule[day] && schedule[day].length > 0);
+    const freeDays = features.totalFreeDays || 0;
+
+    let rawScore = 50;
+    let heuristicSummary = '';
+
+    switch (rankingCriteria) {
+        case 'earliest_finish': {
+            // Prioritize schedules where daily finish times are as early as possible
+            let totalEndMinutes = 0;
+            activeDays.forEach(day => {
+                const classes = schedule[day];
+                const lastClass = classes[classes.length - 1];
+                totalEndMinutes += timeToMinutes(lastClass.endTime);
+            });
+
+            const avgEndMinutes = activeDays.length > 0 ? totalEndMinutes / activeDays.length : 1140;
+            // Benchmark: 13:00 (780m) = 100pts, 19:30 (1170m) = 25pts (spread = 390m)
+            const finishScore = Math.max(20, Math.min(100, Math.round(100 - ((avgEndMinutes - 780) / 390) * 75)));
+            const freeDayBonus = freeDays * 5;
+            rawScore = Math.min(100, finishScore + freeDayBonus);
+
+            const avgH = Math.floor(avgEndMinutes / 60);
+            const avgM = Math.round(avgEndMinutes % 60);
+            heuristicSummary = `Average day finishes by ${String(avgH).padStart(2, '0')}:${String(avgM).padStart(2, '0')} (${freeDays} free days)`;
+            break;
+        }
+
+        case 'no_morning': {
+            // Prioritize avoiding 08:00 AM periods (A1/L1/L31 slots)
+            let earlyStartDays = 0;
+            let lateStartDays = 0;
+            activeDays.forEach(day => {
+                const classes = schedule[day];
+                const firstStart = timeToMinutes(classes[0].startTime);
+                if (firstStart <= 480) { // 08:00 AM
+                    earlyStartDays++;
+                } else if (firstStart >= 590) { // 09:50 AM or later
+                    lateStartDays++;
+                }
+            });
+
+            // 0 early morning starts = 95+ points; -20 per 8:00 AM start
+            const baseLateScore = 100 - (earlyStartDays * 22) + (lateStartDays * 6);
+            rawScore = Math.max(20, Math.min(100, baseLateScore));
+            heuristicSummary = earlyStartDays === 0
+                ? `Zero 08:00 AM classes (${lateStartDays} days starting 09:50 AM or later)`
+                : `${earlyStartDays} days starting at 08:00 AM; ${lateStartDays} days with late starts`;
+            break;
+        }
+
+        case 'max_free_days': {
+            // Maximize days with 0 scheduled classes
+            // 2+ free days = 95+ pts; 1 free day = 80 pts; 0 free days = 50 pts
+            const freeScore = Math.min(100, 48 + (freeDays * 26));
+            rawScore = freeScore;
+            heuristicSummary = `${freeDays} complete free days; classes concentrated on ${activeDays.length} weekdays`;
+            break;
+        }
+
+        case 'balanced':
+        default: {
+            // Optimal gaps between classes: penalize >75 min dead hours and uneven day loads
+            let deadHourGaps = 0;
+            let dayLoadDeviations = 0;
+            const avgDailyClasses = activeDays.length > 0
+                ? (features.morningClassCount + features.eveningClassCount) / activeDays.length
+                : 3;
+
+            activeDays.forEach(day => {
+                const classes = schedule[day];
+                dayLoadDeviations += Math.abs(classes.length - avgDailyClasses);
+
+                for (let i = 0; i < classes.length - 1; i++) {
+                    const c1 = classes[i];
+                    const c2 = classes[i + 1];
+                    const gap = timeToMinutes(c2.startTime) - timeToMinutes(c1.endTime);
+                    if (gap > 75) {
+                        deadHourGaps++;
+                    }
+                }
+            });
+
+            const penalty = (deadHourGaps * 12) + Math.min(25, dayLoadDeviations * 3);
+            rawScore = Math.max(30, Math.min(100, 95 - penalty));
+            heuristicSummary = deadHourGaps === 0
+                ? `Optimal transitions between classes with minimal dead hours (${freeDays} free days)`
+                : `Balanced daily distribution with ${deadHourGaps} study gap windows`;
+            break;
+        }
+    }
+
+    return {
+        score: Math.round(rawScore),
+        rankingCriteria,
+        summary: heuristicSummary
+    };
+}
+
+/**
+ * Generate timetables with full metadata and heuristic scoring
  * @param {array} courses - Array of course objects
  * @param {object} preferences - User preferences
  * @returns {array} Array of timetable objects with schedules and features
  */
 function generateWithMetadata(courses, preferences = {}) {
     const combinations = generateCombinations(courses, preferences);
+    const rankingCriteria = preferences.rankingCriteria || 'balanced';
 
-    return combinations.map((combo, index) => {
+    const scored = combinations.map((combo, index) => {
         const courseList = combo.courses;
         const schedule = createSchedule(courseList);
         const features = calculateFeatures(schedule);
-
+        const heuristic = computeHeuristicScore(schedule, features, rankingCriteria);
         const ttBatch = getTimetableBatch(courseList);
+
         return {
             timetableId: `TT-${Date.now()}-${index}`,
             batch: ttBatch,
             courses: courseList,
             schedule,
+            rankingScore: heuristic.score,
+            rankingCriteria: heuristic.rankingCriteria,
+            heuristicSummary: heuristic.summary,
             features: {
                 ...features,
-                batchShift: ttBatch
+                batchShift: ttBatch,
+                rankingScore: heuristic.score,
+                rankingCriteria: heuristic.rankingCriteria,
+                heuristicSummary: heuristic.summary
             },
             generationMode: combo.generationMode,
             excludedCourseGroups: combo.excludedGroupKeys,
@@ -552,6 +693,19 @@ function generateWithMetadata(courses, preferences = {}) {
             totalCredits: courseList.reduce((sum, c) => sum + (c.credits || 0), 0)
         };
     });
+
+    // Legitimate sorting: rank combinations highest score first!
+    scored.sort((a, b) => b.rankingScore - a.rankingScore);
+
+    // Assign rank 1..N
+    scored.forEach((tt, idx) => {
+        tt.rank = idx + 1;
+        if (tt.features) {
+            tt.features.rank = idx + 1;
+        }
+    });
+
+    return scored;
 }
 
 /**

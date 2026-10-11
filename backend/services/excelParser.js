@@ -42,21 +42,49 @@ async function parseExcelFile(filePath) {
  * @param {number} index - Row index for error reporting
  * @returns {object|null} Parsed course object or null if invalid
  */
+function findRowValue(row, possibleKeys) {
+    const rowKeys = Object.keys(row);
+    for (const key of possibleKeys) {
+        if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+            return String(row[key]).trim();
+        }
+        const matchingKey = rowKeys.find(k => k.trim().toLowerCase() === key.toLowerCase());
+        if (matchingKey && row[matchingKey] !== undefined && row[matchingKey] !== null && String(row[matchingKey]).trim() !== '') {
+            return String(row[matchingKey]).trim();
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Parse a single course row from Excel
+ * @param {object} row - Raw row data from Excel
+ * @param {number} index - Row index for error reporting
+ * @returns {object|null} Parsed course object or null if invalid
+ */
 function parseCourseRow(row, index) {
     try {
         // Common column name variations in VIT FFCS exports
-        const slNo = row['Sl. No'] || row['Sl.No'] || row['S.No'] || row['Serial No'];
-        const courseCodeTitle = row['Course Code & Title'] || row['Course Code &'] || row['COURSE CODE & TITLE'];
-        const credits = row['Credits'] || row['CREDITS'] || row['L-T-P-J-C'] || row['Credit'] || row['L T P J C'];
-        const category = row['Category'] || row['CATEGORY'];
-        const regType = row['Reg Type'] || row['REG TYPE'] || row['Registration Type'];
-        const slot = row['Slot'] || row['SLOT'] || row['slot'];
-        const faculty = row['Faculty'] || row['FACULTY'] || row['faculty'] || row['Faculty Name'];
-        const venue = row['Venue'] || row['VENUE'] || row['venue'] || row['Room'];
-        const courseType = row['Course Type'] || row['COURSE TYPE'] || row['Type'] || row['type'];
+        const slNo = findRowValue(row, ['Sl. No', 'Sl.No', 'S.No', 'Serial No', 'Sl No', 'SL NO']) || (index + 1);
+        const courseCodeTitle = findRowValue(row, [
+            'Course Code & Title',
+            'Course Code & Course Title',
+            'Course Code &',
+            'Course Code & ',
+            'Course Code and Title',
+            'COURSE CODE & TITLE',
+            'COURSE CODE & COURSE TITLE'
+        ]);
+        const credits = findRowValue(row, ['Credits', 'CREDITS', 'L-T-P-J-C', 'Credit', 'L T P J C', 'Cr']) || 3;
+        const category = findRowValue(row, ['Category', 'CATEGORY']) || 'General';
+        const regType = findRowValue(row, ['Reg Type', 'REG TYPE', 'Registration Type', 'Type of Reg']) || 'Regular';
+        const slot = findRowValue(row, ['Slot', 'SLOT', 'slot', 'Slots']) || '';
+        const faculty = findRowValue(row, ['Faculty', 'FACULTY', 'faculty', 'Faculty Name', 'Staff']) || 'TBA';
+        const venue = findRowValue(row, ['Venue', 'VENUE', 'venue', 'Room', 'Class Room', 'Classroom']) || 'TBA';
+        const courseType = findRowValue(row, ['Course Type', 'COURSE TYPE', 'Type', 'type']);
 
-        let courseCode = row['Course Code'] || row['COURSE CODE'] || row['Code'] || row['code'];
-        let courseName = row['Course Title'] || row['COURSE TITLE'] || row['Title'] || row['title'] || row['Course Name'];
+        let courseCode = findRowValue(row, ['Course Code', 'COURSE CODE', 'Code', 'code']);
+        let courseName = findRowValue(row, ['Course Title', 'COURSE TITLE', 'Title', 'title', 'Course Name']);
 
         // If code and name aren't separate, try to parse from combined field
         if (courseCodeTitle && (!courseCode || !courseName)) {
@@ -66,7 +94,7 @@ function parseCourseRow(row, index) {
                 courseName = courseCodeTitle.substring(splitPos + 3).trim();
             } else {
                 const firstSpace = courseCodeTitle.trim().indexOf(' ');
-                if (firstSpace !== -1 && /^[A-Z]{3,4}[0-9]/.test(courseCodeTitle.trim())) {
+                if (firstSpace !== -1 && /^[A-Z]{3,4}[0-9]/i.test(courseCodeTitle.trim())) {
                     courseCode = courseCodeTitle.trim().substring(0, firstSpace).trim();
                     courseName = courseCodeTitle.trim().substring(firstSpace + 1).trim();
                 } else {
@@ -77,9 +105,13 @@ function parseCourseRow(row, index) {
         }
 
         // Validate required fields
-        if (!courseCode || !courseName || !slot) {
-            console.warn(`Row ${index + 1}: Missing required fields (Code: ${courseCode}, Name: ${courseName}, Slot: ${slot}), skipping`);
+        if (!courseCode || !slot) {
+            console.warn(`Row ${index + 1}: Missing required code or slot (Code: ${courseCode}, Slot: ${slot}), skipping`);
             return null;
+        }
+
+        if (!courseName) {
+            courseName = courseCode;
         }
 
         // Parse credits (handle formats like "3-0-0-0-3", "3 0 0 3.0", or just "3")
@@ -101,11 +133,19 @@ function parseCourseRow(row, index) {
         // Determine batch type from slot
         const batchType = getSlotBatch(slot.toString());
 
-        // Determine course type if not provided
-        let determinedType = courseType || 'Theory';
-        const slotStr = slot.toString().toUpperCase();
-        if (slotStr.includes('L') && !slotStr.match(/[A-G][0-9]/)) {
-            determinedType = 'Lab';
+        // Determine course type accurately
+        let determinedType = courseType;
+        const slotStr = slot.toString().trim().toUpperCase();
+        if (!determinedType) {
+            if (slotStr === 'NIL' || slotStr === 'N/A' || slotStr === '-' || slotStr === 'NONE') {
+                determinedType = 'Non-graded';
+            } else if (/\bL\d+/i.test(slotStr) && !slotStr.match(/[A-G]\d+/i)) {
+                determinedType = 'Lab';
+            } else if (courseCode.endsWith('P') && (slotStr.includes('L') || !slotStr.match(/[A-G]\d+/i))) {
+                determinedType = 'Lab';
+            } else {
+                determinedType = 'Theory';
+            }
         }
 
         return {

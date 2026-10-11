@@ -13,13 +13,16 @@ import SEO from "@/components/common/SEO";
 import Signup from "@/pages/Signup";
 import { analytics } from "@/lib/analytics";
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 const renderWithProviders = (ui: React.ReactElement, initialEntry = "/") => {
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={[initialEntry]}>
-        {ui}
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          {ui}
+        </MemoryRouter>
+      </ThemeProvider>
     </AuthProvider>
   );
 };

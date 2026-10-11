@@ -222,13 +222,13 @@ const AppLogo: React.FC<AppLogoProps> = ({
             <span
               className={`font-serif font-black tracking-wider ${
                 size === "sm" ? "text-lg" : size === "xl" ? "text-2xl" : "text-xl"
-              } ${isWhite ? "text-white" : "text-[#1b4b8a]"}`}
+              } ${isWhite ? "text-white" : "text-[#1b4b8a] dark:text-blue-300"}`}
             >
               VIT
             </span>
             <span
               className={`text-xs font-semibold ${
-                isWhite ? "text-white/90" : "text-slate-600"
+                isWhite ? "text-white/90" : "text-slate-600 dark:text-slate-400"
               }`}
             >
               (Vellore Campus)
@@ -238,7 +238,7 @@ const AppLogo: React.FC<AppLogoProps> = ({
                 className={`hidden sm:inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${
                   isWhite
                     ? "bg-white/15 text-amber-300 border-white/20"
-                    : "bg-blue-50 text-[#1b4b8a] border-blue-200"
+                    : "bg-blue-50 dark:bg-slate-800 text-[#1b4b8a] dark:text-blue-300 border-blue-200 dark:border-slate-700"
                 }`}
               >
                 VTOP FFCS
@@ -248,7 +248,7 @@ const AppLogo: React.FC<AppLogoProps> = ({
           {subtitle && (
             <p
               className={`text-[11px] leading-tight ${
-                isWhite ? "text-white/80" : "text-slate-500"
+                isWhite ? "text-white/80" : "text-slate-500 dark:text-slate-400"
               }`}
             >
               {subtitle}
