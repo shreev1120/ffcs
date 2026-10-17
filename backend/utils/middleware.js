@@ -93,13 +93,18 @@ function requireRole(role) {
         next();
     };
 }
+const FALLBACK_DEV_WEBHOOK_SECRET = 'vit-ffcs-webhook-local-dev-placeholder-token';
 
 /**
  * Webhook signature verification middleware (Items 9, 31, 59)
  * Uses constant-time comparison to prevent timing attacks
  */
 function verifyWebhookSecret(req, res, next) {
-    const configuredSecret = process.env.WEBHOOK_SECRET || 'vit-ffcs-webhook-phase2-secure-token';
+    if (process.env.NODE_ENV === 'production' && (!process.env.WEBHOOK_SECRET || process.env.WEBHOOK_SECRET === FALLBACK_DEV_WEBHOOK_SECRET)) {
+        return res.status(500).json({ error: 'Webhook service misconfigured: WEBHOOK_SECRET must be set in production.' });
+    }
+
+    const configuredSecret = process.env.WEBHOOK_SECRET || FALLBACK_DEV_WEBHOOK_SECRET;
     const providedSecret = req.headers['x-webhook-secret'] ||
         (req.headers.authorization && typeof req.headers.authorization === 'string' && req.headers.authorization.startsWith('Bearer ')
             ? req.headers.authorization.slice(7).trim()

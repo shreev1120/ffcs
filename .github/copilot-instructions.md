@@ -4,11 +4,11 @@
 This is a WhatsApp-first timetable generation system for VIT students using FFCS data. Architecture: WhatsApp → n8n workflows → Express API → MongoDB. Key components: Excel parsing, backtracking timetable generation, VIT slot mapping.
 
 ## Core Architecture
-- **Backend**: Express.js with Mongoose ODM
-- **Database**: MongoDB with schemas in `models/` (User, Course, SemesterConfig, GeneratedTimetable)
-- **Services**: `excelParser.js` (xlsx library), `timetableGenerator.js` (backtracking algorithm)
-- **Frontend**: React/Vite in `client/`, axios for API calls
-- **Utils**: `slotMapping.js` - VIT's complex slot system (A1-G2 theory, L1-L60 labs, batch preferences)
+- **Backend**: Express.js with Mongoose ODM in `backend/`
+- **Database**: MongoDB with schemas in `backend/models/` (User, Course, SemesterConfig, GeneratedTimetable)
+- **Services**: `backend/services/excelParser.js` (xlsx library), `backend/services/timetableGenerator.js` (backtracking algorithm)
+- **Frontend**: React/Vite/TypeScript with Tailwind CSS and shadcn/ui in `frontend/`
+- **Utils**: `backend/utils/slotMapping.js` - VIT's complex slot system (A1-G2 theory, L1-L60 labs, batch preferences)
 
 ## VIT Slot System Essentials
 - **Theory slots**: A1-E1 (MWF), F1-G1 (TT), TA1-TF1 (Tue/Thu mornings); *2 series for evenings
@@ -17,8 +17,8 @@ This is a WhatsApp-first timetable generation system for VIT students using FFCS
 - Use `getSlotInfo()`, `doSlotsClash()`, `filterCoursesByBatch()` from `utils/slotMapping.js`
 
 ## Development Workflows
-- **Start backend**: `npm run dev` (nodemon), MongoDB required
-- **Start frontend**: `cd client && npm run dev`
+- **Start backend**: `cd backend && npm run dev` (nodemon), MongoDB required
+- **Start frontend**: `cd frontend && npm run dev`
 - **Test**: `npm test` (Jest), integration tests in `test:integration`
 - **Excel parsing**: Upload to `/api/timetable/upload-excel`, parsed via `services/excelParser.js`
 - **Timetable generation**: POST `/api/timetable/generate` with `semesterConfigId` and preferences
@@ -41,6 +41,3 @@ This is a WhatsApp-first timetable generation system for VIT students using FFCS
 - Unit tests for utilities (slot mapping, clash detection)
 - Integration tests for API endpoints with test database
 - Mock Excel files in `uploads/` for parsing tests
-
-Reference: `README.md` for full setup, `models/` for data structure, `services/` for business logic.</content>
-<parameter name="filePath">c:\Users\shree\OneDrive\Desktop\ooad\ffcs\.github\copilot-instructions.md

@@ -1,8 +1,17 @@
 # Dependencies
 node_modules/
 package-lock.json
+client/
 
-# Environment variables & Secrets (Item 2 & 13)
+# Python & Virtual Environments
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment Variables & Secrets
 .env
 .env.*
 *.env
@@ -10,18 +19,45 @@ package-lock.json
 .env.development.local
 .env.test.local
 .env.production.local
+.env.vault
+!.env.example
 *.secret
 *.pem
 *.key
+*.pfx
+*.p12
+*.cer
+*.crt
+*.der
+id_rsa*
+id_ed25519*
+*.keystore
+*.jks
+*credentials*.json
+*client_secret*.json
+*service-account*.json
+firebase-*.json
 
-# Uploads & Temporary Files (Item 21 & 22)
+# Package Manager Credentials
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+
+# Uploads, Student Data & Spreadsheets
 uploads/
 backend/uploads/
 *.xlsx
 *.xls
 *.csv
+*.tsv
+*.pdf
+*.sqlite
+*.sqlite3
+*.db
+dump.rdb
 
-# Logs & Debug Dumps (Item 11 & 35)
+# Logs & Debug Dumps
 logs/
 *.log
 npm-debug.log*
@@ -29,25 +65,46 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# OS files
+# OS & Filesystem Metadata
 .DS_Store
 Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
 
-# IDE & Editor files
+# IDE & Editor Files
 .vscode/
 .idea/
 *.swp
 *.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sublime-project
+*.sublime-workspace
 
 # Testing & Coverage
 coverage/
 .nyc_output/
 
-# Build & Dist artifacts
+# Build & Dist Artifacts
 dist/
 build/
 backend/dist/
 frontend/dist/
+dist-ssr/
 
-# n8n
+# Automation, Cloud & Infrastructure
 .n8n/
+.serverless/
+.terraform/
+*.tfvars
+*.tfvars.json
+
+# Scratch & Temporary
+scratch/
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup

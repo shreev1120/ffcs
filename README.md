@@ -43,18 +43,28 @@ An AI-driven automation system that helps VIT students generate optimized, clash
 ### 1. Clone and Install
 
 ```bash
-cd c:\Users\shree\OneDrive\Desktop\ooad\ffcs
-npm install
+git clone https://github.com/shreev1120/ffcs.git
+cd ffcs
+
+# Install root, frontend and backend dependencies
+npm install --prefix backend
+npm install --prefix frontend
 ```
 
 ### 2. Configure Environment
 
-Copy `.env.example` to `.env` and update:
+Copy backend template to `.env` and update values:
 
+```bash
+cp backend/.env.example backend/.env
+```
+
+Default local development settings:
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/ffcs-agent
-N8N_WEBHOOK_URL=http://localhost:5678/webhook
+MONGODB_URI=mongodb://127.0.0.1:27017/ffcs-agent
+JWT_SECRET=your_development_jwt_secret_key
+WEBHOOK_SECRET=your_development_webhook_secret_key
 ```
 
 ### 3. Start MongoDB
@@ -64,13 +74,14 @@ N8N_WEBHOOK_URL=http://localhost:5678/webhook
 mongod
 ```
 
-### 4. Start the Server
+### 4. Start the Application
 
 ```bash
-npm start
+# Start backend server
+cd backend && npm run dev
 
-# For development with auto-reload
-npm run dev
+# In another terminal, start frontend
+cd frontend && npm run dev
 ```
 
 The server will start on `http://localhost:5000`
@@ -124,23 +135,24 @@ GET /api/timetable/config/:semesterConfigId
 
 ```
 ffcs/
-├── models/                 # MongoDB schemas
-│   ├── User.js
-│   ├── Course.js
-│   ├── SemesterConfig.js
-│   └── GeneratedTimetable.js
-├── routes/                 # API routes
-│   ├── timetable.js
-│   └── webhook.js
-├── services/               # Business logic
-│   ├── excelParser.js
-│   └── timetableGenerator.js
-├── utils/                  # Utilities
-│   └── slotMapping.js
-├── uploads/                # Uploaded Excel files
-├── server.js               # Main server file
-├── package.json
-└── .env                    # Environment variables
+├── backend/
+│   ├── models/                 # MongoDB schemas (User, Course, Timetable)
+│   ├── routes/                 # API routes (auth, timetable, webhook)
+│   ├── services/               # Core engine (excelParser, timetableGenerator)
+│   ├── utils/                  # Auth, security middleware, slot mappings
+│   ├── server.js               # Express application entrypoint
+│   ├── package.json
+│   └── .env.example            # Environment configuration template
+├── frontend/
+│   ├── src/                    # React 18, TypeScript, Tailwind, Lucide UI
+│   │   ├── components/         # Accessible, responsive UI components
+│   │   ├── pages/              # Portal pages (Upload, Results, Dashboard)
+│   │   ├── context/            # AuthContext, ThemeContext
+│   │   └── lib/                # API helpers and utilities
+│   ├── package.json
+│   └── vite.config.ts
+├── .gitignore                  # Comprehensive secret and build exclusion rules
+└── README.md
 ```
 
 ## 🔧 VIT Slot System
