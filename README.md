@@ -1,280 +1,287 @@
-# WhatsApp-first FFCS Agent
+# 🎓 VIT FFCS Agent - Full-Stack Academic Timetable Optimizer
 
-An AI-driven automation system that helps VIT students generate optimized, clash-free academic timetables through WhatsApp. Built with n8n workflow orchestration, Node.js/Express backend, and MongoDB.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC.svg?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248.svg?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Express.js](https://img.shields.io/badge/Express.js-4.18-000000.svg?logo=express&logoColor=white)](https://expressjs.com/)
 
-## 🎯 Features
+An intelligent full-stack automation platform designed for VIT (Vellore Institute of Technology) students to generate clash-free, credit-compliant, and optimized academic timetables from their VTOP course registration Excel exports.
 
-- **WhatsApp-First Interface**: Interact entirely through WhatsApp - no app installation needed
-- **Intelligent Parsing**: Automatically extracts course data from VIT FFCS Excel exports
-- **Clash-Free Generation**: Advanced backtracking algorithm ensures no slot conflicts
-- **Batch Filtering**: Choose Morning, Evening, or Both batches
-- **AI Ranking**: Smart ranking based on preferences (earliest finish, no mornings, max free days)
-- **PDF Delivery**: Receive beautifully formatted timetables directly in WhatsApp
+---
+
+## 📸 Screenshots
+
+| Light Mode Timetable Grid | Dark Mode Timetable Grid |
+| :---: | :---: |
+| ![Morning Timetable Light](./timetable_morning_light_mode.png) | ![Morning Timetable Dark](./timetable_morning_dark_mode.png) |
+
+---
+
+## ✨ Features
+
+- **⚡ Instant VTOP Excel Parsing**: Automatically ingests and validates Course Registration `.xlsx` files, mapping courses, faculties, credits, and slot codes into memory.
+- **🔄 Clash-Free Backtracking Engine**: Computes valid timetable combinations without slot collisions using VIT's complex slot mapping matrix.
+- **🎯 18–27 Credit Constraint Enforcement**: Enforces VIT academic limits (minimum 18 credits, maximum 27 credits) across all generated timetable permutations.
+- **🌅 Batch Filtering**: Select your ideal routine:
+  - **Morning Batch** (`*1` theory slots + `L1–L30` lab slots)
+  - **Evening Batch** (`*2` theory slots + `L31–L60` lab slots)
+  - **Both Batches** (mixed schedule combinations)
+- **🧠 Multi-Criteria Ranking Algorithm**:
+  - **Balanced**: Uniformly distributes classes throughout the week.
+  - **Earliest Finish**: Prioritizes finishing classes early in the day.
+  - **No Morning Classes**: Minimizes or eliminates early 8:00 AM slots.
+  - **Max Free Days**: Clusters lectures and labs to maximize full days off.
+- **🌓 Modern Responsive UI**: Built with React 18, TypeScript, Tailwind CSS, Lucide icons, glassmorphism UI cards, and system-aware dark/light theme switching.
+- **🔐 Hardened Security Architecture**:
+  - HTTP-only lax session cookies with JWT authentication.
+  - Salted bcrypt password hashing (`bcryptjs`).
+  - NoSQL injection sanitization (`mongoSanitize`).
+  - Dynamic rate limiting on auth, upload, and generation endpoints.
+  - Helmet CSP and security transport headers (`HSTS`, `X-Content-Type-Options`).
+  - Constant-time secret signature verification for webhooks.
+- **🤖 n8n & WhatsApp Bot Ready**: Exposes authenticated webhook endpoints for headless timetable generation and WhatsApp delivery.
+
+---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────┐
-│  WhatsApp   │ ◄─── User Interface
-└──────┬──────┘
-       │
-┌──────▼──────┐
-│     n8n     │ ◄─── Workflow Orchestration & AI Agents
-└──────┬──────┘
-       │
-┌──────▼──────┐
-│   Express   │ ◄─── Backend API & Timetable Engine
-└──────┬──────┘
-       │
-┌──────▼──────┐
-│   MongoDB   │ ◄─── Data Storage
-└─────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    User Interfaces                           │
+│  ┌─────────────────────────────┐   ┌──────────────────────┐  │
+│  │ React 18 + Vite Web Client  │   │ WhatsApp / n8n Bot   │  │
+│  └──────────────┬──────────────┘   └──────────┬───────────┘  │
+└─────────────────┼─────────────────────────────┼──────────────┘
+                  │ HTTPS (REST + Cookie / JWT)  │ Webhook Token
+                  ▼                             ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  Express.js Security Layer                   │
+│  • Helmet CSP & Headers        • Rate Limiting Throttle      │
+│  • CORS Filtering              • NoSQL Injection Sanitizer   │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     Core Backend Services                    │
+│  ┌───────────────────────────┐   ┌────────────────────────┐  │
+│  │   Excel Ingestion Parser  │   │ Timetable Generation   │  │
+│  │   (xlsx stream parsing)   │   │ (Backtracking Engine)  │  │
+│  └──────────────┬────────────┘   └───────────┬────────────┘  │
+│                 │                            │               │
+│                 ▼                            ▼               │
+│          VIT Slot Matrix             Credit Validator        │
+│          (Theory & Labs)             (18–27 Range Limit)     │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                      MongoDB Storage                         │
+│  • Users & Preferences       • Generated Timetable Cache     │
+│  • Semester Configurations   • Audit Activity Logs           │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## 📋 Prerequisites
+---
 
-- **Node.js** 16+ and npm
-- **MongoDB** (local or MongoDB Atlas)
-- **n8n** (for workflow automation)
-- **WhatsApp Business API** access (for Phase 4)
+## 📁 Repository Structure
 
-## 🚀 Quick Start
+```
+ffcs/
+├── backend/
+│   ├── models/                 # Mongoose schemas (User, Course, SemesterConfig, Timetable)
+│   ├── routes/
+│   │   ├── auth.js             # Authentication, session cookies, profiles & preferences
+│   │   ├── timetable.js        # File upload, parsing, generation & retrieval
+│   │   └── webhook.js          # Authenticated n8n / WhatsApp agent endpoints
+│   ├── services/
+│   │   ├── excelParser.js      # Robust VTOP course registration Excel parser
+│   │   └── timetableGenerator.js # Backtracking timetable permutation engine
+│   ├── utils/
+│   │   ├── auth.js             # Bcrypt hashing & JWT session helpers
+│   │   ├── middleware.js       # Authentication & constant-time webhook verification
+│   │   ├── sanitize.js         # Input sanitization & NoSQL injection guards
+│   │   └── slotMapping.js      # VIT slot definitions, clashes & day timings
+│   ├── tests/                  # Jest unit and integration test suite
+│   ├── server.js               # Express application entrypoint
+│   ├── package.json
+│   └── .env.example            # Backend environment configuration template
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/         # Modular layout, dashboard, navigation & UI primitives
+│   │   ├── context/            # AuthContext and ThemeContext providers
+│   │   ├── pages/              # Portal pages (Upload, Results, Account, Terms, Privacy)
+│   │   ├── lib/                # API client wrapper & analytics utilities
+│   │   ├── App.tsx             # Route definitions & protected route guards
+│   │   └── index.css           # Tailwind CSS design system tokens
+│   ├── public/                 # Static assets, logos, and web manifests
+│   ├── package.json
+│   ├── vite.config.ts          # Vite build configuration
+│   └── .env.example            # Frontend environment template
+│
+├── .gitignore                  # Production-grade gitignore rules for public repos
+└── README.md
+```
 
-### 1. Clone and Install
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [MongoDB](https://www.mongodb.com/) (Local instance running on `mongodb://127.0.0.1:27017` or MongoDB Atlas URI)
+- `npm` or `yarn`
+
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/shreev1120/ffcs.git
 cd ffcs
-
-# Install root, frontend and backend dependencies
-npm install --prefix backend
-npm install --prefix frontend
 ```
 
-### 2. Configure Environment
+### 2. Configure Backend Environment
 
-Copy backend template to `.env` and update values:
+Copy the environment template in `backend/`:
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Default local development settings:
+Review and configure your values in `backend/.env`:
+
 ```env
 PORT=5000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
 MONGODB_URI=mongodb://127.0.0.1:27017/ffcs-agent
-JWT_SECRET=your_development_jwt_secret_key
-WEBHOOK_SECRET=your_development_webhook_secret_key
+JWT_SECRET=your_secure_development_jwt_secret_key_at_least_32_characters
+WEBHOOK_SECRET=your_secure_webhook_secret_for_n8n
+UPLOAD_DIR=./uploads
 ```
 
-### 3. Start MongoDB
+### 3. Configure Frontend Environment (Optional)
 
 ```bash
-# If using local MongoDB
-mongod
+cp frontend/.env.example frontend/.env
 ```
 
-### 4. Start the Application
+Default value in `frontend/.env`:
+```env
+VITE_API_BASE_URL=/api
+```
+
+### 4. Install Dependencies
 
 ```bash
-# Start backend server
-cd backend && npm run dev
+# Install backend dependencies
+npm install --prefix backend
 
-# In another terminal, start frontend
-cd frontend && npm run dev
+# Install frontend dependencies
+npm install --prefix frontend
 ```
 
-The server will start on `http://localhost:5000`
+### 5. Start the Application
 
-## 📡 API Endpoints
-
-### Health Check
-```http
-GET /health
-```
-
-### Upload Excel File
-```http
-POST /api/timetable/upload-excel
-Content-Type: multipart/form-data
-
-{
-  "excelFile": <file>,
-  "userId": "user_id",
-  "semester": "Fall 2024",
-  "academicYear": "2024-2025"
-}
-```
-
-### Generate Timetables
-```http
-POST /api/timetable/generate
-Content-Type: application/json
-
-{
-  "semesterConfigId": "config_id",
-  "preferences": {
-    "batchPreference": "Morning|Evening|Both",
-    "rankingCriteria": "earliest_finish|no_morning|max_free_days|balanced",
-    "maxTimetables": 5
-  }
-}
-```
-
-### Get User Timetables
-```http
-GET /api/timetable/:userId
-```
-
-### Get Semester Configuration
-```http
-GET /api/timetable/config/:semesterConfigId
-```
-
-## 🗂️ Project Structure
-
-```
-ffcs/
-├── backend/
-│   ├── models/                 # MongoDB schemas (User, Course, Timetable)
-│   ├── routes/                 # API routes (auth, timetable, webhook)
-│   ├── services/               # Core engine (excelParser, timetableGenerator)
-│   ├── utils/                  # Auth, security middleware, slot mappings
-│   ├── server.js               # Express application entrypoint
-│   ├── package.json
-│   └── .env.example            # Environment configuration template
-├── frontend/
-│   ├── src/                    # React 18, TypeScript, Tailwind, Lucide UI
-│   │   ├── components/         # Accessible, responsive UI components
-│   │   ├── pages/              # Portal pages (Upload, Results, Dashboard)
-│   │   ├── context/            # AuthContext, ThemeContext
-│   │   └── lib/                # API helpers and utilities
-│   ├── package.json
-│   └── vite.config.ts
-├── .gitignore                  # Comprehensive secret and build exclusion rules
-└── README.md
-```
-
-## 🔧 VIT Slot System
-
-The system understands VIT's complex slot mapping:
-
-- **Theory Slots**: A1, A2, B1, B2, C1, C2, D1, D2, E1, E2, F1, F2, G1, G2, TA1, TA2, etc.
-  - *1 series = Morning batch
-  - *2 series = Evening batch
-- **Lab Slots**: L1-L60 (2-hour blocks)
-
-### Slot Mapping Example
-- **A1**: Monday, Wednesday, Friday @ 08:00-08:50 (Morning)
-- **A2**: Monday, Wednesday, Friday @ 14:00-14:50 (Evening)
-- **L1**: Monday @ 08:00-09:50 (Morning Lab)
-
-## 🧪 Testing
-
-### Manual Testing
-
-1. **Create a test user**:
+In **Terminal 1** (Backend):
 ```bash
-# Use MongoDB Compass or mongosh
-use ffcs-agent
-db.users.insertOne({
-  vitEmail: "test@vitstudent.ac.in",
-  whatsappNumber: "+1234567890",
-  name: "Test User",
-  conversationState: "IDLE"
-})
+cd backend
+npm run dev
 ```
+> Server runs on `http://localhost:5000`
 
-2. **Upload a sample Excel file** using Postman or curl:
+In **Terminal 2** (Frontend):
 ```bash
-curl -X POST http://localhost:5000/api/timetable/upload-excel \
-  -F "excelFile=@path/to/ffcs.xlsx" \
-  -F "userId=<user_id>"
+cd frontend
+npm run dev
 ```
-
-3. **Generate timetables**:
-```bash
-curl -X POST http://localhost:5000/api/timetable/generate \
-  -H "Content-Type: application/json" \
-  -d '{"semesterConfigId": "<config_id>", "preferences": {"batchPreference": "Morning"}}'
-```
-
-## 📊 Excel File Format
-
-Your VIT FFCS Excel export should have columns:
-- **Course Code** (e.g., CSE2001)
-- **Course Title** (e.g., Computer Networks)
-- **Credits** (e.g., 3 or 3-0-0-0-3)
-- **Slot** (e.g., A1+TA1, L1+L2)
-- **Faculty** (optional)
-- **Venue** (optional)
-- **Course Type** (optional)
-
-## 🔄 Current Status
-
-### ✅ Completed
-- **Phase 1**: Backend scaffold with Express, MongoDB, and file upload
-- **Phase 2**: Timetable generation engine with clash detection
-
-### 🚧 In Progress
-- **Phase 3**: n8n AI agents for ranking
-- **Phase 4**: WhatsApp integration
-- **Phase 5**: Web dashboard (optional)
-
-## 🛣️ Roadmap
-
-### Phase 3: n8n AI Agents
-- Set up n8n instance
-- Create AI description agent
-- Create AI ranking agent
-- Test agent workflows
-
-### Phase 4: WhatsApp Integration
-- Configure WhatsApp Business API
-- Build conversation state machine
-- Implement PDF generation
-- End-to-end testing
-
-### Phase 5: Web Dashboard (Optional)
-- React frontend
-- Upload interface
-- Timetable visualization
-
-## 🤝 Contributing
-
-This is a VIT student project. Contributions welcome!
-
-## 📝 License
-
-MIT License
-
-## 🆘 Troubleshooting
-
-### MongoDB Connection Error
-```
-Error: connect ECONNREFUSED 127.0.0.1:27017
-```
-**Solution**: Ensure MongoDB is running (`mongod` command)
-
-### File Upload Error
-```
-Error: Only Excel files (.xlsx, .xls) are allowed
-```
-**Solution**: Ensure you're uploading a valid Excel file from VIT FFCS
-
-### No Timetables Generated
-```
-Error: No valid timetables could be generated
-```
-**Solution**: Check for:
-- All courses having slot clashes
-- Batch preference too restrictive
-- Invalid slot codes in Excel file
-
-## 📧 Support
-
-For issues or questions, please check the documentation or create an issue.
+> Web client runs on `http://localhost:5173`
 
 ---
 
-**Made with ❤️ for VIT Students**
+## 📡 API Reference
+
+### Authentication Endpoints
+
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/signup` | Register student with `@vitstudent.ac.in` email | No |
+| `POST` | `/api/auth/login` | Authenticate student and issue HTTP-only cookie | No |
+| `POST` | `/api/auth/logout` | Terminate session and invalidate cookie | Yes |
+| `GET` | `/api/auth/me` | Retrieve profile for authenticated user | Yes |
+| `PUT` | `/api/auth/profile` | Update profile information | Yes |
+| `PUT` | `/api/auth/preferences`| Update default batch, ranking criteria, max results | Yes |
+| `PUT` | `/api/auth/password` | Update student account password | Yes |
+| `GET` | `/api/auth/dashboard/stats` | Retrieve user schedules count & metrics | Yes |
+| `GET` | `/api/auth/dashboard/activity` | Retrieve recent activity audit trail | Yes |
+
+### Timetable Engine Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/timetable/upload-excel` | Upload and parse student VTOP course registration Excel file |
+| `POST` | `/api/timetable/generate` | Execute clash-free backtracking generation with credit limits |
+| `GET` | `/api/timetable/config/:configId` | Fetch parsed semester course catalog and configuration |
+| `GET` | `/api/timetable/user/:userId` | Retrieve saved timetables for a student |
+
+### Automation & Webhook Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/webhook/health` | Webhook service health check |
+| `POST` | `/api/webhook/user-state` | Update conversation state machine (n8n/WhatsApp) |
+| `GET` | `/api/webhook/user/:whatsapp`| Fetch non-sensitive user state by WhatsApp number |
+
+---
+
+## 🧪 Testing
+
+Both frontend and backend are covered by automated test suites:
+
+```bash
+# Run backend tests (Jest)
+npm test --prefix backend
+
+# Run frontend tests (Vitest)
+npm test --prefix frontend
+
+# Validate production frontend build
+npm run build --prefix frontend
+```
+
+---
+
+## 🛡️ Security & Privacy Practices
+
+- **Zero Hardcoded Secrets**: Secrets and database URIs are loaded exclusively from runtime environment variables.
+- **Strict Public Exclusion**: Sensitive file extensions (`.env*`, `*.pem`, `*.key`, `*.pfx`, `*.xlsx`, `*.pdf`, `*.sqlite`, `.venv/`) are blocked by `.gitignore`.
+- **Least-Privilege Logging**: Personal passwords, hashes, and authorization headers are never logged to console or log files.
+- **Brute Force Protection**: IP-based rate limiting on authentication attempts and timetable generation routines.
+
+---
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome!
+Feel free to open an issue or submit a Pull Request:
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more details.
+
+---
+
+<p align="center">
+  <strong>Made with ❤️ for VIT Students</strong>
+</p>
