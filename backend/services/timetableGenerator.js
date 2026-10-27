@@ -177,6 +177,10 @@ function generateCombinations(courses, preferences = {}) {
         return [];
     }
 
+    // Most Constrained Variable (MRV) heuristic: prioritize groups with fewest options first.
+    // This dramatically prunes dead branches early in the backtracking search.
+    optionGroups.sort((a, b) => a.options.length - b.options.length);
+
     // Branch & Bound precomputations for credit limits:
     const groupMaxCredits = optionGroups.map((g) =>
         Math.max(0, ...(g.options || []).map((o) => (o.credits !== undefined && !isNaN(Number(o.credits)) ? Number(o.credits) : 3)))
@@ -196,6 +200,12 @@ function generateCombinations(courses, preferences = {}) {
 
     // Strict mode: requires picking one option from every course group
     const strictCombinations = [];
+    const strictTracker = {
+        iterations: 0,
+        maxIterations: 25000,
+        startTime: Date.now(),
+        maxDurationMs: 1000
+    };
     backtrackOptionGroups(
         optionGroups,
         0,
@@ -207,7 +217,8 @@ function generateCombinations(courses, preferences = {}) {
         new Map(),
         batchPreference,
         minCredits,
-        maxCredits
+        maxCredits,
+        strictTracker
     );
     if (strictCombinations.length > 0) {
         return strictCombinations.map((courses) => ({
@@ -221,7 +232,11 @@ function generateCombinations(courses, preferences = {}) {
     const relaxedCombinations = [];
     const tracker = {
         bestSelectedGroups: -1,
-        seen: new Set()
+        seen: new Set(),
+        iterations: 0,
+        maxIterations: 45000,
+        startTime: Date.now(),
+        maxDurationMs: 2500
     };
     backtrackOptionGroupsRelaxed(
         optionGroups,
@@ -353,8 +368,14 @@ function backtrackOptionGroups(
     selectedFacultyByFamily,
     batchPreference,
     minCredits,
-    maxCredits
+    maxCredits,
+    tracker
 ) {
+    if (tracker) {
+        if (tracker.iterations++ > tracker.maxIterations) return;
+        if ((tracker.iterations & 511) === 0 && Date.now() - tracker.startTime > tracker.maxDurationMs) return;
+    }
+
     // Stop if we've found enough timetables
     if (allTimetables.length >= maxResults) {
         return;
@@ -399,7 +420,8 @@ function backtrackOptionGroups(
             selectedFacultyByFamily,
             batchPreference,
             minCredits,
-            maxCredits
+            maxCredits,
+            tracker
         );
         currentTimetable.pop();
         undoFacultyAssignment(facultyAssignment, selectedFacultyByFamily);
@@ -432,6 +454,11 @@ function backtrackOptionGroupsRelaxed(
     maxCredits,
     suffixMaxCredits
 ) {
+    if (tracker) {
+        if (tracker.iterations++ > tracker.maxIterations) return;
+        if ((tracker.iterations & 511) === 0 && Date.now() - tracker.startTime > tracker.maxDurationMs) return;
+    }
+
     const remainingGroups = optionGroups.length - groupIndex;
 
     // Prune branches that cannot reach within 1 group of current best known solution

@@ -233,8 +233,8 @@ router.post('/generate', optionalAuth, async (req, res) => {
             }));
         } else if (Array.isArray(directCourses) && directCourses.length > 0) {
             // Direct courses submission (e.g. from frontend state)
-            if (directCourses.length > 60) {
-                return res.status(400).json({ error: 'Too many courses submitted. Maximum is 60.' });
+            if (directCourses.length > 250) {
+                return res.status(400).json({ error: 'Too many courses submitted. Maximum is 250.' });
             }
 
             coursesData = directCourses.map((c, idx) => ({
