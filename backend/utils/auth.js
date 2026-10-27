@@ -1,13 +1,21 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+const crypto = require('crypto');
+
 // Item 3 & 26: Strong JWT Secret validation - prevent weak or default secrets in production
 const FALLBACK_DEV_SECRET = 'ffcs_agent_secure_local_development_jwt_secret_key_2026_9941a8';
-const JWT_SECRET = process.env.JWT_SECRET || FALLBACK_DEV_SECRET;
+let JWT_SECRET = process.env.JWT_SECRET;
 
-if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === FALLBACK_DEV_SECRET)) {
-    console.error('FATAL SECURITY ERROR: JWT_SECRET environment variable must be set in production!');
-    process.exit(1);
+if (!JWT_SECRET || JWT_SECRET === FALLBACK_DEV_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+        console.warn('⚠️ WARNING: JWT_SECRET environment variable is not set in production.');
+        console.warn('⚠️ Generating an ephemeral 256-bit cryptographic key for this instance.');
+        console.warn('👉 To keep login sessions persistent across redeploys, configure JWT_SECRET in your Render dashboard.');
+        JWT_SECRET = crypto.randomBytes(32).toString('hex');
+    } else {
+        JWT_SECRET = FALLBACK_DEV_SECRET;
+    }
 }
 
 const JWT_EXPIRES_IN = '7d';
