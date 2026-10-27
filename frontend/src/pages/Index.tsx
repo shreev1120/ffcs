@@ -7,6 +7,8 @@ import {
   Info,
   CheckCircle2,
   FileText,
+  CalendarCheck2,
+  Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -181,6 +183,18 @@ const Index = () => {
                 <Button
                   asChild
                   size="default"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 px-5 rounded shadow-sm"
+                >
+                  <Link to="/planner" className="flex items-center gap-2">
+                    <CalendarCheck2 className="w-4 h-4" />
+                    <span>Interactive Slot Planner</span>
+                    <span className="bg-white/20 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">New</span>
+                  </Link>
+                </Button>
+
+                <Button
+                  asChild
+                  size="default"
                   className="bg-[#2455a3] hover:bg-[#1b4b8a] text-white font-bold text-xs h-10 px-5 rounded shadow-sm"
                 >
                   <Link to="/upload" className="flex items-center gap-2">
@@ -224,6 +238,37 @@ const Index = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Interactive Slot Planner Feature Banner */}
+      <div className="mb-6 p-5 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-sky-950/30 shadow-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/70 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded">
+              <Sparkles className="w-3 h-3" />
+              New Feature
+            </span>
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Inspired by ffcsplanner.firebaseapp.com
+            </span>
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+            Interactive Visual Slot Planner (Curriculum-Fed)
+          </h2>
+          <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+            Click on any slot in the official VIT timetable grid to assign subjects, faculty, slots, and credits. Automatically pre-loaded with all <span className="font-bold text-emerald-700 dark:text-emerald-400">100 courses</span> from your curriculum (Foundation Core, Discipline-linked ES, Discipline Core, and Discipline Electives) with real-time clash checking and credit calculation.
+          </p>
+        </div>
+        <Button
+          asChild
+          className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 px-5 rounded shadow"
+        >
+          <Link to="/planner" className="flex items-center gap-2">
+            <CalendarCheck2 className="w-4 h-4" />
+            <span>Launch Slot Planner</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </Button>
       </div>
 
       {/* Excel Sheet Column Template & Format Guide */}

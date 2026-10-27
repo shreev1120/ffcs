@@ -12,6 +12,7 @@ import {
   FileText,
   LogOut,
   GraduationCap,
+  CalendarCheck2,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -31,6 +32,7 @@ const Header = () => {
 
   const navLinks = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { label: "FFCS Slot Planner", href: "/planner", icon: CalendarCheck2 },
     { label: "Timetable Generator", href: "/upload", icon: Upload },
     { label: "Saved Schedules", href: "/results", icon: CalendarDays },
     { label: "Student Account", href: "/student-account", icon: User },

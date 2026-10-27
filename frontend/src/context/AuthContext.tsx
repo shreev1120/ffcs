@@ -28,6 +28,7 @@ type AuthContextValue = {
     registrationNumber?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
+  loginAsGuest: (name?: string, regNo?: string) => void;
   refreshUser: () => Promise<void>;
   updateProfile: (payload: Partial<AuthUser>) => Promise<void>;
   updatePreferences: (payload: Partial<UserPreferences>) => Promise<void>;
@@ -40,11 +41,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loginAsGuest = useCallback((name = "VIT Student", regNo = "23BCE1001") => {
+    const guestUser: AuthUser = {
+      id: "guest-vit-student",
+      vitEmail: `${regNo.toLowerCase()}@vitstudent.ac.in`,
+      name,
+      registrationNumber: regNo,
+      preferences: {
+        batchPreference: "Morning",
+        rankingCriteria: "balanced",
+        maxTimetables: 50,
+      },
+    };
+    try {
+      localStorage.setItem("vtop_ffcs_guest_user", JSON.stringify(guestUser));
+    } catch {
+      // LocalStorage non-blocking
+    }
+    setUser(guestUser);
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
       const data = await apiRequest<{ user: AuthUser }>("/me");
       setUser(data.user);
     } catch {
+      // Check for saved local guest student session
+      try {
+        const savedGuest = localStorage.getItem("vtop_ffcs_guest_user");
+        if (savedGuest) {
+          setUser(JSON.parse(savedGuest));
+          return;
+        }
+      } catch {
+        // Local storage parse fallback
+      }
       setUser(null);
     } finally {
       setLoading(false);
@@ -88,6 +119,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch {
       // Ignore server-side logout failures and clear local auth state anyway.
     } finally {
+      try {
+        localStorage.removeItem("vtop_ffcs_guest_user");
+      } catch {
+        // Non-blocking
+      }
       setUser(null);
     }
   }, []);
@@ -123,12 +159,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       login,
       signup,
       logout,
+      loginAsGuest,
       refreshUser,
       updateProfile,
       updatePreferences,
       updatePassword,
     }),
-    [loading, login, logout, refreshUser, signup, updatePassword, updatePreferences, updateProfile, user],
+    [loading, login, logout, loginAsGuest, refreshUser, signup, updatePassword, updatePreferences, updateProfile, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

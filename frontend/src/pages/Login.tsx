@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Lock, Mail, AlertCircle, ArrowRight, School } from "lucide-react";
+import { Lock, Mail, AlertCircle, ArrowRight, School, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, login } = useAuth();
+  const { user, login, loginAsGuest } = useAuth();
 
   const [vitEmail, setVitEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -182,6 +182,34 @@ const Login = () => {
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 )}
+              </Button>
+
+              {/* Instant Guest / Client-Side Access */}
+              <div className="relative my-3 text-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                </div>
+                <span className="relative bg-white dark:bg-slate-900 px-2 text-[10px] uppercase font-bold text-slate-400">
+                  OR
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  loginAsGuest();
+                  toast({
+                    title: "Guest Student Access",
+                    description: "Entered as Student in Offline / Client-Side Mode.",
+                  });
+                  const redirectTo = (location.state as { from?: string } | null)?.from || "/planner";
+                  navigate(redirectTo, { replace: true });
+                }}
+                className="w-full h-10 border-emerald-500/70 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-bold text-xs rounded flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Instant Student Access (Offline / No Server)</span>
               </Button>
 
               <div className="text-center pt-2">

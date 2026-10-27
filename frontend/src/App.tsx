@@ -24,6 +24,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
+const Planner = lazy(() => import("./pages/Planner"));
 
 import { ThemeProvider } from "./context/ThemeContext";
 
@@ -69,6 +70,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Upload />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/planner"
+                element={
+                  <ProtectedRoute>
+                    <Planner />
                   </ProtectedRoute>
                 }
               />

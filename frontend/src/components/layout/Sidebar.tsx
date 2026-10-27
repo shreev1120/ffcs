@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   ShieldCheck,
   FileText,
+  CalendarCheck2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -19,6 +20,12 @@ const academicItems = [
     icon: LayoutDashboard,
     label: "Dashboard Home",
     href: "/dashboard",
+  },
+  {
+    icon: CalendarCheck2,
+    label: "FFCS Slot Planner",
+    href: "/planner",
+    badge: "Interactive",
   },
   {
     icon: FileSpreadsheet,
@@ -102,7 +109,17 @@ const Sidebar = () => {
                   )}
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
-                  <span>{item.label}</span>
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {item.badge && (
+                    <span className={cn(
+                      "text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide",
+                      isActive
+                        ? "bg-white/25 text-white"
+                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                    )}>
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
