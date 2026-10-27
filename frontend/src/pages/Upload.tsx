@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate, Link } from "react-router-dom";
 import { API_BASE_URL } from "@/lib/api";
 import { useAuth, type UserPreferences } from "@/context/AuthContext";
+import { parseExcelFileInBrowser } from "@/lib/clientExcelParser";
+import { generateClientTimetables } from "@/lib/clientTimetableGenerator";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +40,7 @@ const Upload = () => {
   const [dataConsent, setDataConsent] = useState(true);
   const [honeypot, setHoneypot] = useState("");
   const { toast } = useToast();
-  const { user, updatePreferences } = useAuth();
+  const { user, isGuest, updatePreferences } = useAuth();
   const [maxTimetables, setMaxTimetables] = useState<number>(() => {
     return user?.preferences?.maxTimetables && user.preferences.maxTimetables > 12
       ? user.preferences.maxTimetables
@@ -106,63 +108,101 @@ const Upload = () => {
     setIsUploading(true);
     setErrorMessage(null);
 
-    const formData = new FormData();
-    formData.append("excelFile", file);
-    if (user?.id) {
-      formData.append("userId", user.id);
-    }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/timetable/upload-excel`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
+      let genData: any = null;
 
-      const data = await response.json();
+      // In guest mode, parse and compute directly client-side in the browser
+      if (isGuest) {
+        const parsedCourses = await parseExcelFileInBrowser(file);
+        genData = generateClientTimetables(parsedCourses, {
+          batchPreference: effectiveBatchPreference,
+          rankingCriteria: user?.preferences?.rankingCriteria || "balanced",
+          maxTimetables: maxTimetables || user?.preferences?.maxTimetables || 50,
+          minCredits: 18,
+          maxCredits: 27,
+          preferredTheorySlots: user?.preferences?.preferredTheorySlots || [],
+          avoidEarlyMorning: user?.preferences?.avoidEarlyMorning || false,
+          freeDayPreferred: user?.preferences?.freeDayPreferred || null,
+        });
+      } else {
+        // Attempt backend API, with automatic high-speed browser fallback
+        try {
+          const formData = new FormData();
+          formData.append("excelFile", file);
+          if (user?.id) {
+            formData.append("userId", user.id);
+          }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to process course registration Excel file.");
-      }
+          const response = await fetch(`${API_BASE_URL}/timetable/upload-excel`, {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          });
 
-      const rawCourses = data.courses || [];
-      const courses = rawCourses.map((c: any) => {
-        const isLabCourse =
-          c.isLab === true ||
-          c.courseType?.toLowerCase().includes("lab") ||
-          c.type?.toLowerCase().includes("lab") ||
-          (c.slot && c.slot.trim().toUpperCase().startsWith("L"));
-        return {
-          code: c.courseCode || c.code,
-          courseCode: c.courseCode || c.code,
-          title: c.courseName || c.title || c.courseTitle || c.name || c.courseCode || c.code,
-          courseName: c.courseName || c.title || c.courseTitle || c.name || c.courseCode || c.code,
-          credits: c.credits ? Number(c.credits) : 3,
-          type: isLabCourse ? "Lab" : (c.courseType || c.type || "Theory"),
-          courseType: isLabCourse ? "Lab" : (c.courseType || c.type || "Theory"),
-          isLab: isLabCourse,
-          slot: c.slot || "",
-          theorySlots: isLabCourse
-            ? []
-            : Array.isArray(c.theorySlots)
-            ? c.theorySlots
-            : (c.slot ? [c.slot] : []),
-          labSlots: isLabCourse
-            ? (Array.isArray(c.labSlots) && c.labSlots.length > 0 ? c.labSlots : (c.slot ? [c.slot] : []))
-            : (Array.isArray(c.labSlots) ? c.labSlots : []),
-          faculty: c.faculty || "Faculty",
-          venue: c.venue || "TBD",
-        };
-      });
+          if (response.ok) {
+            const data = await response.json();
+            const rawCourses = data.courses || [];
+            const courses = rawCourses.map((c: any) => {
+              const isLabCourse =
+                c.isLab === true ||
+                c.courseType?.toLowerCase().includes("lab") ||
+                c.type?.toLowerCase().includes("lab") ||
+                (c.slot && c.slot.trim().toUpperCase().startsWith("L"));
+              return {
+                code: c.courseCode || c.code,
+                courseCode: c.courseCode || c.code,
+                title: c.courseName || c.title || c.courseTitle || c.name || c.courseCode || c.code,
+                courseName: c.courseName || c.title || c.courseTitle || c.name || c.courseCode || c.code,
+                credits: c.credits ? Number(c.credits) : 3,
+                type: isLabCourse ? "Lab" : (c.courseType || c.type || "Theory"),
+                courseType: isLabCourse ? "Lab" : (c.courseType || c.type || "Theory"),
+                isLab: isLabCourse,
+                slot: c.slot || "",
+                theorySlots: isLabCourse
+                  ? []
+                  : Array.isArray(c.theorySlots)
+                  ? c.theorySlots
+                  : (c.slot ? [c.slot] : []),
+                labSlots: isLabCourse
+                  ? (Array.isArray(c.labSlots) && c.labSlots.length > 0 ? c.labSlots : (c.slot ? [c.slot] : []))
+                  : (Array.isArray(c.labSlots) ? c.labSlots : []),
+                faculty: c.faculty || "Faculty",
+                venue: c.venue || "TBD",
+              };
+            });
 
-      const genResponse = await fetch(`${API_BASE_URL}/timetable/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          semesterConfigId: data.semesterConfigId,
-          courses,
-          preferences: {
+            const genResponse = await fetch(`${API_BASE_URL}/timetable/generate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                semesterConfigId: data.semesterConfigId,
+                courses,
+                preferences: {
+                  batchPreference: effectiveBatchPreference,
+                  rankingCriteria: user?.preferences?.rankingCriteria || "balanced",
+                  maxTimetables: maxTimetables || user?.preferences?.maxTimetables || 50,
+                  minCredits: 18,
+                  maxCredits: 27,
+                  preferredTheorySlots: user?.preferences?.preferredTheorySlots || [],
+                  avoidEarlyMorning: user?.preferences?.avoidEarlyMorning || false,
+                  freeDayPreferred: user?.preferences?.freeDayPreferred || null,
+                },
+              }),
+            });
+
+            if (genResponse.ok) {
+              genData = await genResponse.json();
+            }
+          }
+        } catch (apiErr) {
+          console.info("Backend server unreachable, executing client-side generator:", apiErr);
+        }
+
+        // Resilient fallback to browser generator
+        if (!genData) {
+          const parsedCourses = await parseExcelFileInBrowser(file);
+          genData = generateClientTimetables(parsedCourses, {
             batchPreference: effectiveBatchPreference,
             rankingCriteria: user?.preferences?.rankingCriteria || "balanced",
             maxTimetables: maxTimetables || user?.preferences?.maxTimetables || 50,
@@ -171,14 +211,12 @@ const Upload = () => {
             preferredTheorySlots: user?.preferences?.preferredTheorySlots || [],
             avoidEarlyMorning: user?.preferences?.avoidEarlyMorning || false,
             freeDayPreferred: user?.preferences?.freeDayPreferred || null,
-          },
-        }),
-      });
+          });
+        }
+      }
 
-      const genData = await genResponse.json();
-
-      if (!genResponse.ok) {
-        throw new Error(genData.error || "Failed to generate conflict-free timetables.");
+      if (!genData || !genData.timetablesCount) {
+        throw new Error(`Could not find any conflict-free ${effectiveBatchPreference} schedules. Check slot distribution in your file.`);
       }
 
       toast({
