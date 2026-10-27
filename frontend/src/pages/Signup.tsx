@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { Lock, Mail, User, AlertCircle, ArrowRight, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Lock, Mail, User, AlertCircle, ArrowRight, CheckCircle2, ShieldCheck, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import ThemeToggle from "@/components/common/ThemeToggle";
 const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signup } = useAuth();
+  const { user, signup, loginAsGuest } = useAuth();
 
   const [name, setName] = useState("");
   const [vitEmail, setVitEmail] = useState("");
@@ -377,6 +377,33 @@ const Signup = () => {
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 )}
+              </Button>
+
+              {/* Instant Student Access Alternative */}
+              <div className="relative my-3 text-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <span className="relative bg-white px-2 text-[10px] uppercase font-bold text-slate-400">
+                  OR SKIP REGISTRATION
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  loginAsGuest();
+                  toast({
+                    title: "Instant Access Activated",
+                    description: "You're all set! No account required to plan or optimize.",
+                  });
+                  navigate("/planner");
+                }}
+                className="w-full h-9 border-emerald-500/70 text-emerald-700 hover:bg-emerald-50 font-bold text-xs rounded flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Instant Student Access (No Account Needed)</span>
               </Button>
 
               <div className="text-center pt-1">

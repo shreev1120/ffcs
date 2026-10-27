@@ -14,10 +14,12 @@ export type AuthUser = {
   registrationNumber?: string;
   whatsappNumber?: string;
   preferences: UserPreferences;
+  isGuest?: boolean;
 };
 
 type AuthContextValue = {
   user: AuthUser | null;
+  isGuest: boolean;
   loading: boolean;
   login: (vitEmail: string, password: string) => Promise<void>;
   signup: (
@@ -41,12 +43,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loginAsGuest = useCallback((name = "VIT Student", regNo = "23BCE1001") => {
+  const loginAsGuest = useCallback((name = "Guest Student", regNo = "Instant Access") => {
     const guestUser: AuthUser = {
       id: "guest-vit-student",
-      vitEmail: `${regNo.toLowerCase()}@vitstudent.ac.in`,
-      name,
-      registrationNumber: regNo,
+      vitEmail: "guest@vitstudent.ac.in",
+      name: "Guest Student",
+      registrationNumber: "Instant Access",
+      isGuest: true,
       preferences: {
         batchPreference: "Morning",
         rankingCriteria: "balanced",
@@ -155,6 +158,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const value = useMemo(
     () => ({
       user,
+      isGuest: !!user?.isGuest,
       loading,
       login,
       signup,

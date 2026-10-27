@@ -88,6 +88,19 @@ const Login = () => {
           </div>
 
           <div className="p-6">
+            {/* Account Required Alert when redirecting from profile or preferences */}
+            {(location.state as { requiresAccount?: boolean } | null)?.requiresAccount && (
+              <div className="mb-4 p-3 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs animate-in fade-in">
+                <p className="font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>Student Account Required</span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed">
+                  Student Profile and Cloud Slot Preferences require a registered account. Sign in below or create an account.
+                </p>
+              </div>
+            )}
+
             {/* Form Error Banner */}
             {errorMessage && (
               <div
@@ -102,6 +115,48 @@ const Login = () => {
                 </div>
               </div>
             )}
+
+            {/* OPTION 1: Separate Instant Student Access Box (No Account Needed) */}
+            <div className="mb-5 p-4 rounded border border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 text-xs shadow-sm">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Option 1: Instant Student Access</span>
+                </span>
+                <span className="text-[10px] bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                  No Login Needed
+                </span>
+              </div>
+              <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed mb-3">
+                Use the Interactive Slot Planner, upload VTOP spreadsheets, and generate conflict-free schedules directly without creating an account.
+              </p>
+              <Button
+                type="button"
+                onClick={() => {
+                  loginAsGuest();
+                  toast({
+                    title: "Instant Access Activated",
+                    description: "Entered as Student in Offline / Direct Mode.",
+                  });
+                  const redirectTo = (location.state as { from?: string } | null)?.from || "/planner";
+                  navigate(redirectTo, { replace: true });
+                }}
+                className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded shadow-sm flex items-center justify-center gap-2"
+              >
+                <span>Launch Planner &amp; Tools Directly</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+
+            {/* Divider */}
+            <div className="relative my-4 text-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+              </div>
+              <span className="relative bg-white dark:bg-slate-900 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Option 2: Sign In with Student Account
+              </span>
+            </div>
 
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
               <div className="space-y-1">
@@ -178,38 +233,10 @@ const Login = () => {
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <span>Sign In to Student Portal</span>
+                    <span>Sign In to Student Account</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 )}
-              </Button>
-
-              {/* Instant Guest / Client-Side Access */}
-              <div className="relative my-3 text-center">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200 dark:border-slate-800" />
-                </div>
-                <span className="relative bg-white dark:bg-slate-900 px-2 text-[10px] uppercase font-bold text-slate-400">
-                  OR
-                </span>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  loginAsGuest();
-                  toast({
-                    title: "Guest Student Access",
-                    description: "Entered as Student in Offline / Client-Side Mode.",
-                  });
-                  const redirectTo = (location.state as { from?: string } | null)?.from || "/planner";
-                  navigate(redirectTo, { replace: true });
-                }}
-                className="w-full h-10 border-emerald-500/70 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-bold text-xs rounded flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Instant Student Access (Offline / No Server)</span>
               </Button>
 
               <div className="text-center pt-2">

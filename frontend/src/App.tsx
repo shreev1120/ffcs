@@ -10,6 +10,7 @@ import Results from "./pages/Results";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Logout from "./pages/Logout";
+import Planner from "./pages/Planner";
 import CookieBanner from "./components/common/CookieBanner";
 import StickyMobileCTA from "./components/common/StickyMobileCTA";
 import { AuthProvider } from "./context/AuthContext";
@@ -24,7 +25,6 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
-const Planner = lazy(() => import("./pages/Planner"));
 
 import { ThemeProvider } from "./context/ThemeContext";
 
@@ -100,7 +100,7 @@ const App = () => (
               <Route
                 path="/student-account"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireRegistered>
                     <StudentAccount />
                   </ProtectedRoute>
                 }
@@ -108,7 +108,7 @@ const App = () => (
               <Route
                 path="/global-preferences"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireRegistered>
                     <GlobalPreferences />
                   </ProtectedRoute>
                 }

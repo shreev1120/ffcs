@@ -21,7 +21,7 @@ import AppLogo from "@/components/common/AppLogo";
 import ThemeToggle from "@/components/common/ThemeToggle";
 
 const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, isGuest, logout } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -35,8 +35,12 @@ const Header = () => {
     { label: "FFCS Slot Planner", href: "/planner", icon: CalendarCheck2 },
     { label: "Timetable Generator", href: "/upload", icon: Upload },
     { label: "Saved Schedules", href: "/results", icon: CalendarDays },
-    { label: "Student Account", href: "/student-account", icon: User },
-    { label: "Preferences", href: "/global-preferences", icon: Settings },
+    ...(!isGuest
+      ? [
+          { label: "Student Account", href: "/student-account", icon: User },
+          { label: "Preferences", href: "/global-preferences", icon: Settings },
+        ]
+      : []),
   ];
 
   return (
@@ -61,23 +65,43 @@ const Header = () => {
             </div>
 
             <div className="flex items-center gap-2 pl-2">
-              <Link
-                to="/student-account"
-                className="flex items-center gap-2 px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-colors"
-                title="Student Profile"
-              >
-                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : "S"}
+              {!isGuest ? (
+                <Link
+                  to="/student-account"
+                  className="flex items-center gap-2 px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-colors"
+                  title="Student Profile"
+                >
+                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : "S"}
+                  </div>
+                  <div className="text-left text-xs">
+                    <p className="font-semibold leading-tight truncate max-w-[120px]">
+                      {user?.name || user?.vitEmail?.split("@")[0] || "Student"}
+                    </p>
+                    <p className="text-[10px] text-white/80 font-mono leading-tight">
+                      {user?.registrationNumber || "VIT Student"}
+                    </p>
+                  </div>
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-white/10 border border-white/20 text-white">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">
+                      G
+                    </div>
+                    <div className="text-left text-xs">
+                      <p className="font-semibold leading-tight">Guest Student</p>
+                      <p className="text-[10px] text-white/80 font-mono leading-tight">Instant Access</p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/login"
+                    className="px-2.5 py-1.5 rounded bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors border border-white/30"
+                  >
+                    Sign In
+                  </Link>
                 </div>
-                <div className="text-left text-xs">
-                  <p className="font-semibold leading-tight truncate max-w-[120px]">
-                    {user?.name || user?.vitEmail?.split("@")[0] || "Student"}
-                  </p>
-                  <p className="text-[10px] text-white/80 font-mono leading-tight">
-                    {user?.registrationNumber || "VIT Student"}
-                  </p>
-                </div>
-              </Link>
+              )}
 
               {/* Theme Toggle Button */}
               <ThemeToggle variant="icon" />

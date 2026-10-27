@@ -2,8 +2,13 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { ReactElement } from "react";
 
-const ProtectedRoute = ({ children }: { children: ReactElement }) => {
-  const { user, loading } = useAuth();
+interface ProtectedRouteProps {
+  children: ReactElement;
+  requireRegistered?: boolean;
+}
+
+const ProtectedRoute = ({ children, requireRegistered = false }: ProtectedRouteProps) => {
+  const { user, isGuest, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -16,6 +21,11 @@ const ProtectedRoute = ({ children }: { children: ReactElement }) => {
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  // If page requires a full registered account and user is in guest mode
+  if (requireRegistered && isGuest) {
+    return <Navigate to="/login" replace state={{ from: location.pathname, requiresAccount: true }} />;
   }
 
   return children;
