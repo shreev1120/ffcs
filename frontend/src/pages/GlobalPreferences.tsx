@@ -13,6 +13,9 @@ const GlobalPreferences = () => {
   const [batchPreference, setBatchPreference] = useState<UserPreferences["batchPreference"]>(
     user?.preferences.batchPreference ?? null,
   );
+  const [maxTimetables, setMaxTimetables] = useState<number>(
+    user?.preferences.maxTimetables && user.preferences.maxTimetables > 12 ? user.preferences.maxTimetables : 50,
+  );
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (event: FormEvent) => {
@@ -30,7 +33,7 @@ const GlobalPreferences = () => {
       await updatePreferences({
         batchPreference,
         rankingCriteria: "balanced",
-        maxTimetables: user?.preferences.maxTimetables || 20,
+        maxTimetables,
       });
       toast({ title: "Preferences saved", description: "Global slot preferences updated successfully." });
     } catch (error) {
@@ -97,6 +100,37 @@ const GlobalPreferences = () => {
                       ? "Strict Morning Shift: Theory in A1/B1/C1... (*1 series, 08:00 AM - 01:00 PM) & Labs in L31 to L60 (02:00 PM - 07:30 PM). Zero mixed slots."
                       : "Strict Evening Shift: Labs in L1 to L30 (08:00 AM - 01:20 PM) & Theory in A2/B2/C2... (*2 series, 02:00 PM - 07:00 PM). Zero mixed slots."}
                   </p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2.5 flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-[#2455a3] dark:text-blue-400" />
+              <span>Default Combinations To Generate</span>
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-xs mb-3">
+              Configure how many conflict-free timetable options to calculate per Excel upload:
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { count: 15, label: "15 Options" },
+                { count: 30, label: "30 Options" },
+                { count: 50, label: "50 Options (Recommended)" },
+                { count: 100, label: "100 Options (Max)" },
+              ].map(({ count, label }) => (
+                <button
+                  key={count}
+                  type="button"
+                  onClick={() => setMaxTimetables(count)}
+                  className={`p-3 rounded border text-center transition-all text-xs font-bold ${
+                    maxTimetables === count
+                      ? "border-[#2455a3] bg-blue-50/70 dark:bg-blue-950/50 ring-2 ring-[#2455a3]/30 dark:ring-blue-500/30 text-[#2455a3] dark:text-blue-300"
+                      : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  {label}
                 </button>
               ))}
             </div>

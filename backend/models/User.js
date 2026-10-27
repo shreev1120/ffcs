@@ -45,9 +45,9 @@ const userSchema = new mongoose.Schema({
         },
         maxTimetables: {
             type: Number,
-            default: 12,
+            default: 50,
             min: 1,
-            max: 100
+            max: 150
         }
     },
     conversationState: {

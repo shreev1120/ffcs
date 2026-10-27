@@ -267,7 +267,7 @@ router.post('/generate', optionalAuth, async (req, res) => {
         const effectivePreferences = {
             batchPreference: preferences?.batchPreference || semesterConfig?.preferences?.batchPreference || userPrefs.batchPreference || 'Morning',
             rankingCriteria: preferences?.rankingCriteria || semesterConfig?.preferences?.rankingCriteria || userPrefs.rankingCriteria || 'balanced',
-            maxTimetables: Number(preferences?.maxTimetables || semesterConfig?.preferences?.maxTimetables || userPrefs.maxTimetables || 20),
+            maxTimetables: Math.min(150, Math.max(1, Number(preferences?.maxTimetables || semesterConfig?.preferences?.maxTimetables || userPrefs.maxTimetables || 50))),
             minCredits: preferences?.minCredits !== undefined ? Number(preferences.minCredits) : (semesterConfig?.preferences?.minCredits ?? userPrefs.minCredits ?? 18),
             maxCredits: preferences?.maxCredits !== undefined ? Number(preferences.maxCredits) : (semesterConfig?.preferences?.maxCredits ?? userPrefs.maxCredits ?? 27),
             avoidEarlyMorning: preferences?.avoidEarlyMorning ?? userPrefs.avoidEarlyMorning ?? false,

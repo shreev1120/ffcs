@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   Clock,
   Check,
+  Sliders,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import GlassCard from "@/components/ui/GlassCard";
@@ -37,8 +38,12 @@ const Upload = () => {
   const [dataConsent, setDataConsent] = useState(true);
   const [honeypot, setHoneypot] = useState("");
   const { toast } = useToast();
-  const navigate = useNavigate();
   const { user, updatePreferences } = useAuth();
+  const [maxTimetables, setMaxTimetables] = useState<number>(() => {
+    return user?.preferences?.maxTimetables && user.preferences.maxTimetables > 12
+      ? user.preferences.maxTimetables
+      : 50;
+  });
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -160,7 +165,7 @@ const Upload = () => {
           preferences: {
             batchPreference: effectiveBatchPreference,
             rankingCriteria: user?.preferences?.rankingCriteria || "balanced",
-            maxTimetables: user?.preferences?.maxTimetables || 20,
+            maxTimetables: maxTimetables || user?.preferences?.maxTimetables || 50,
             minCredits: 18,
             maxCredits: 27,
             preferredTheorySlots: user?.preferences?.preferredTheorySlots || [],
@@ -394,6 +399,48 @@ const Upload = () => {
                   {batchPreference === "Evening" ? "✓ Active selection for this upload" : "Click to select evening shift"}
                 </div>
               </button>
+            </div>
+          </div>
+
+          {/* Dedicated Combination Count Selector */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 border-l-4 border-l-[#2455a3]">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-[#2455a3] dark:text-blue-400" />
+                <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                  Combinations To Generate
+                </h3>
+              </div>
+              <span className="text-[10px] bg-blue-50 dark:bg-blue-950/50 text-[#2455a3] dark:text-blue-300 font-semibold px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                Target: {maxTimetables} Options
+              </span>
+            </div>
+
+            <p className="text-slate-600 dark:text-slate-400 text-xs mb-3">
+              Select how many conflict-free timetable permutations our solver should calculate. If your course pool has more than 12 combinations, choose 50 or 100 to view all viable schedules:
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {[
+                { count: 15, label: "15 Options", sub: "Fast quick look" },
+                { count: 30, label: "30 Options", sub: "Balanced variety" },
+                { count: 50, label: "50 Options", sub: "Recommended" },
+                { count: 100, label: "100 Options", sub: "Comprehensive" },
+              ].map(({ count, label, sub }) => (
+                <button
+                  key={count}
+                  type="button"
+                  onClick={() => setMaxTimetables(count)}
+                  className={`p-2.5 rounded border transition-all text-center flex flex-col items-center justify-center ${
+                    maxTimetables === count
+                      ? "border-[#2455a3] bg-blue-50/70 dark:bg-blue-950/50 ring-2 ring-[#2455a3]/30 dark:ring-blue-500/30 text-[#2455a3] dark:text-blue-300 font-bold"
+                      : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  <span className="text-xs font-bold">{label}</span>
+                  <span className="text-[10px] opacity-75 mt-0.5">{sub}</span>
+                </button>
+              ))}
             </div>
           </div>
 

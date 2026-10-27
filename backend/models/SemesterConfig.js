@@ -34,9 +34,9 @@ const semesterConfigSchema = new mongoose.Schema({
         },
         maxTimetables: {
             type: Number,
-            default: 5,
+            default: 50,
             min: 1,
-            max: 20
+            max: 150
         },
         minCredits: {
             type: Number,

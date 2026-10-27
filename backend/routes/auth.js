@@ -104,7 +104,7 @@ router.post('/signup', async (req, res) => {
             preferences: {
                 batchPreference: null,
                 rankingCriteria: 'balanced',
-                maxTimetables: 12
+                maxTimetables: 50
             }
         });
 
@@ -215,7 +215,7 @@ router.put('/preferences', requireAuth, async (req, res) => {
         if (rankingCriteria !== undefined && allowedRanking.includes(rankingCriteria)) {
             req.user.preferences.rankingCriteria = rankingCriteria;
         }
-        if (typeof maxTimetables === 'number' && maxTimetables >= 1 && maxTimetables <= 60) {
+        if (typeof maxTimetables === 'number' && maxTimetables >= 1 && maxTimetables <= 150) {
             req.user.preferences.maxTimetables = Math.round(maxTimetables);
         }
 

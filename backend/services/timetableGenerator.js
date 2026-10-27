@@ -200,11 +200,12 @@ function generateCombinations(courses, preferences = {}) {
 
     // Strict mode: requires picking one option from every course group
     const strictCombinations = [];
+    const targetCount = Math.max(10, Number(maxTimetables) || 50);
     const strictTracker = {
         iterations: 0,
-        maxIterations: 25000,
+        maxIterations: Math.max(50000, targetCount * 1200),
         startTime: Date.now(),
-        maxDurationMs: 1000
+        maxDurationMs: Math.max(2500, targetCount * 50)
     };
     backtrackOptionGroups(
         optionGroups,
@@ -234,9 +235,9 @@ function generateCombinations(courses, preferences = {}) {
         bestSelectedGroups: -1,
         seen: new Set(),
         iterations: 0,
-        maxIterations: 45000,
+        maxIterations: Math.max(75000, targetCount * 1500),
         startTime: Date.now(),
-        maxDurationMs: 2500
+        maxDurationMs: Math.max(4000, targetCount * 70)
     };
     backtrackOptionGroupsRelaxed(
         optionGroups,
