@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   FileText,
   CalendarCheck2,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -31,6 +32,12 @@ const academicItems = [
     icon: FileSpreadsheet,
     label: "Timetable Generator",
     href: "/upload",
+  },
+  {
+    icon: Users,
+    label: "Faculty Selection",
+    href: "/select-faculty",
+    badge: "Filter",
   },
   {
     icon: Calendar,

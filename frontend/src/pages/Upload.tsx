@@ -10,6 +10,7 @@ import {
   Clock,
   Check,
   Sliders,
+  Users,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import GlassCard from "@/components/ui/GlassCard";
@@ -84,6 +85,60 @@ const Upload = () => {
         return;
       }
       setFile(selected);
+    }
+  };
+
+  const handleProceedToFaculty = async () => {
+    if (honeypot.trim().length > 0) {
+      setErrorMessage("Invalid bot submission.");
+      return;
+    }
+    if (!file) {
+      setErrorMessage("Please select or drop an Excel (.xlsx) file first.");
+      return;
+    }
+    if (!dataConsent) {
+      setErrorMessage("Please confirm course data processing consent before proceeding.");
+      return;
+    }
+
+    setIsUploading(true);
+    setErrorMessage(null);
+
+    try {
+      const parsedCourses = await parseExcelFileInBrowser(file);
+      if (!parsedCourses || parsedCourses.length === 0) {
+        throw new Error("No course rows found in this file. Please verify the columns and format.");
+      }
+
+      try {
+        sessionStorage.setItem("vtop_ffcs_uploaded_courses", JSON.stringify(parsedCourses));
+        sessionStorage.setItem("vtop_ffcs_uploaded_filename", file.name);
+      } catch (err) {
+        console.warn("Could not cache to sessionStorage:", err);
+      }
+
+      toast({
+        title: "File Processed Successfully",
+        description: `Found ${parsedCourses.length} course entries. Proceeding to faculty selection.`,
+      });
+
+      navigate("/select-faculty", {
+        state: {
+          parsedCourses,
+          fileName: file.name,
+        },
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to parse Excel file.";
+      setErrorMessage(msg);
+      toast({
+        title: "Upload Notice",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -574,16 +629,28 @@ const Upload = () => {
               <Button
                 size="default"
                 disabled={!file || isUploading}
-                onClick={() => handleUpload()}
-                className="w-full sm:flex-1 bg-[#2455a3] hover:bg-[#1b4b8a] text-white font-bold text-xs h-10 rounded shadow-sm gap-2"
+                onClick={handleProceedToFaculty}
+                className="w-full sm:flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 rounded shadow-sm gap-2"
               >
                 {isUploading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <FileSpreadsheet className="w-4 h-4" />
+                  <Users className="w-4 h-4" />
                 )}
-                <span>{isUploading ? "Generating Schedules..." : "Generate Conflict-Free Timetables"}</span>
+                <span>{isUploading ? "Reading Course Data..." : "Proceed to Faculty Selection"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+
+              <Button
+                size="default"
+                variant="outline"
+                disabled={!file || isUploading}
+                onClick={() => handleUpload()}
+                className="w-full sm:w-auto border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-xs h-10 px-4 rounded"
+                title="Directly optimize across all available faculties without manual filtering"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-[#2455a3] dark:text-blue-400 mr-2" />
+                <span>Quick Generate</span>
               </Button>
 
               {file && !isUploading && (
@@ -614,7 +681,7 @@ const Upload = () => {
               {[
                 { title: "Export Course Allocation", desc: "Log in to VTOP and export your registered courses as Excel." },
                 { title: "Upload Excel File", desc: "Drag and drop the sheet into the upload zone above." },
-                { title: "Select Batch Shift", desc: "Choose preferred Morning or Evening theory slot distribution." },
+                { title: "Select Preferred Faculty", desc: "Choose your favorite teachers for each course from the sheet." },
                 { title: "Review Valid Schedules", desc: "Inspect clash-free timetable combinations and choose your preferred one." },
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-2.5">

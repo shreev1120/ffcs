@@ -13,6 +13,7 @@ import {
   LogOut,
   GraduationCap,
   CalendarCheck2,
+  Users,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -34,6 +35,7 @@ const Header = () => {
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "FFCS Slot Planner", href: "/planner", icon: CalendarCheck2 },
     { label: "Timetable Generator", href: "/upload", icon: Upload },
+    { label: "Faculty Selection", href: "/select-faculty", icon: Users },
     { label: "Saved Schedules", href: "/results", icon: CalendarDays },
     ...(!isGuest
       ? [

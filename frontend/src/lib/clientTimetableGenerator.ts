@@ -64,6 +64,7 @@ export interface GeneratorPreferences {
   preferredTheorySlots?: string[];
   avoidEarlyMorning?: boolean;
   freeDayPreferred?: string | null;
+  selectedFaculties?: string[];
 }
 
 function normalizeFacultyName(faculty?: string): string {
@@ -224,7 +225,11 @@ function passesFacultyConsistency(courses: ParsedCourse[], constrainedFamilies: 
   return true;
 }
 
-function buildCourseOptionGroups(courses: ParsedCourse[], batchPreference: "Morning" | "Evening"): CourseOptionGroup[] {
+function buildCourseOptionGroups(
+  courses: ParsedCourse[],
+  batchPreference: "Morning" | "Evening",
+  selectedFaculties?: string[]
+): CourseOptionGroup[] {
   // Filter courses for pure batch shift (or convert single labs if needed)
   let eligibleCourses = filterCoursesByBatch(courses, batchPreference);
 
@@ -259,15 +264,38 @@ function buildCourseOptionGroups(courses: ParsedCourse[], batchPreference: "Morn
     groupMap.get(groupKey)!.push(course);
   });
 
+  // Normalize selected faculty names for quick, case-insensitive matching
+  const normSelectedFaculties = new Set(
+    (selectedFaculties || [])
+      .map((f) => normalizeFacultyName(f))
+      .filter((f) => f.length > 0)
+  );
+
   const optionGroups: CourseOptionGroup[] = [];
   groupMap.forEach((options, groupKey) => {
-    const first = options[0];
+    let filteredOptions = options;
+
+    // If user specified preferred faculties:
+    // Check if any offering in this course group is taught by one of the selected faculties.
+    // If yes, filter this course group to ONLY offerings from the selected faculties!
+    // (If the user selected multiple best faculties for this course, all their offerings are kept).
+    // If no offering matches any selected faculty (e.g. user selected none for this course), retain all offerings.
+    if (normSelectedFaculties.size > 0) {
+      const matching = options.filter((opt) =>
+        normSelectedFaculties.has(normalizeFacultyName(opt.faculty))
+      );
+      if (matching.length > 0) {
+        filteredOptions = matching;
+      }
+    }
+
+    const first = filteredOptions[0] || options[0];
     optionGroups.push({
       key: groupKey,
       courseCode: first.courseCode,
       courseName: first.courseName,
       category: first.category || "General",
-      options,
+      options: filteredOptions,
     });
   });
 
@@ -297,6 +325,7 @@ function generateCombinations(
     maxTimetables = 50,
     minCredits = 18,
     maxCredits = 27,
+    selectedFaculties = [],
   } = preferences;
 
   if (batchPreference === "Both") {
@@ -306,7 +335,7 @@ function generateCombinations(
     return [...m, ...e];
   }
 
-  const optionGroups = buildCourseOptionGroups(courses, batchPreference);
+  const optionGroups = buildCourseOptionGroups(courses, batchPreference, selectedFaculties);
   if (optionGroups.length === 0) return [];
 
   const constrainedFamilies = buildFacultyConstraintFamilies(optionGroups);

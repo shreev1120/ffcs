@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle, Download, Trash2, User, Award } from "lucide-react";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle, Download, Trash2, User, Award, Users } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import SEO from "@/components/common/SEO";
@@ -680,7 +680,18 @@ const Results = () => {
               All permutations adhere strictly to VIT theory and laboratory slot separation rules with zero clashes.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs rounded shrink-0 flex items-center gap-1.5"
+            >
+              <Link to="/select-faculty">
+                <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Adjust Faculty Selection</span>
+              </Link>
+            </Button>
+
             <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button

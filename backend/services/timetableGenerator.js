@@ -235,7 +235,7 @@ function generateCombinations(courses, preferences = {}) {
         return [...morningCombos, ...eveningCombos];
     }
 
-    const optionGroups = buildCourseOptionGroups(courses, batchPreference);
+    const optionGroups = buildCourseOptionGroups(courses, batchPreference, preferences.selectedFaculties);
     if (optionGroups.length === 0) {
         return [];
     }
@@ -373,7 +373,7 @@ function generateCombinations(courses, preferences = {}) {
  * @param {string} batchPreference
  * @returns {array}
  */
-function buildCourseOptionGroups(courses, batchPreference) {
+function buildCourseOptionGroups(courses, batchPreference, selectedFaculties = []) {
     const groups = new Map();
 
     courses.forEach((course) => {
@@ -383,6 +383,12 @@ function buildCourseOptionGroups(courses, batchPreference) {
         existing.push(course);
         groups.set(groupKey, existing);
     });
+
+    const normSelected = new Set(
+        (Array.isArray(selectedFaculties) ? selectedFaculties : [])
+            .map((f) => normalizeFacultyName(f))
+            .filter((f) => f.length > 0)
+    );
 
     const optionGroups = [];
 
@@ -411,7 +417,7 @@ function buildCourseOptionGroups(courses, batchPreference) {
         }
 
         const seen = new Set();
-        const uniqueOptions = [];
+        let uniqueOptions = [];
         candidateOptions.forEach((option) => {
             const optionKey = [
                 option.courseCode,
@@ -425,6 +431,16 @@ function buildCourseOptionGroups(courses, batchPreference) {
                 uniqueOptions.push(option);
             }
         });
+
+        // Filter by user's selected faculties if specified:
+        if (normSelected.size > 0) {
+            const matching = uniqueOptions.filter((opt) =>
+                normSelected.has(normalizeFacultyName(opt.faculty))
+            );
+            if (matching.length > 0) {
+                uniqueOptions = matching;
+            }
+        }
 
         optionGroups.push({
             groupKey: options[0] ? `${options[0].courseCode}::${(options[0].courseType || 'Theory').toString().trim().toUpperCase()}` : `GROUP_${optionGroups.length + 1}`,
