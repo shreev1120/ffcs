@@ -490,7 +490,14 @@ const Planner = () => {
       const link = document.createElement("a");
       link.download = `VIT_FFCS_Planned_Schedule_${Date.now()}.png`;
       link.href = dataUrl;
+      link.style.display = "none";
+      document.body.appendChild(link);
       link.click();
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+      }, 1500);
       toast({ title: "Image Downloaded", description: "Timetable grid saved as high-res PNG." });
     } catch (err) {
       toast({ title: "Export Failed", description: "Could not generate screenshot.", variant: "destructive" });

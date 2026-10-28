@@ -627,27 +627,76 @@ const Results = () => {
             badgeEl.style.padding = "1px 3px";
             badgeEl.style.borderRadius = "3px";
           });
+
+          // Ensure course titles in legend never truncate with ellipsis in the exported image
+          clonedCard?.querySelectorAll(".truncate").forEach((node) => {
+            const el = node as HTMLElement;
+            el.style.maxWidth = "none";
+            el.style.overflow = "visible";
+            el.style.textOverflow = "clip";
+            el.style.whiteSpace = "normal";
+          });
         },
       });
 
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          throw new Error("Canvas could not generate image blob");
-        }
-        const blobUrl = URL.createObjectURL(blob);
-        const downloadLink = document.createElement("a");
-        downloadLink.download = `VIT_Timetable_Option_${selectedIndex + 1}.png`;
-        downloadLink.href = blobUrl;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      const fileName = `VIT_Timetable_Option_${selectedIndex + 1}.png`;
+      let downloaded = false;
 
-        toast({
-          title: "Timetable Downloaded",
-          description: `Option ${selectedIndex + 1} schedule exported successfully with crystal-clear text.`,
+      // Primary download strategy: synchronous Data URL
+      // This is 100% self-contained and avoids the Chrome/Edge bug where
+      // premature URL.revokeObjectURL destroys the blob stream and leaves
+      // an unopenable or corrupt .crdownload file in download history.
+      try {
+        const dataUrl = canvas.toDataURL("image/png");
+        if (dataUrl && dataUrl.length > 100) {
+          const downloadLink = document.createElement("a");
+          downloadLink.download = fileName;
+          downloadLink.href = dataUrl;
+          downloadLink.style.display = "none";
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          setTimeout(() => {
+            if (document.body.contains(downloadLink)) {
+              document.body.removeChild(downloadLink);
+            }
+          }, 1500);
+          downloaded = true;
+        }
+      } catch (dataUrlErr) {
+        console.warn("toDataURL export attempt fallback to Blob:", dataUrlErr);
+      }
+
+      // Secondary fallback strategy: Blob URL with safe 60s lifetime
+      if (!downloaded) {
+        await new Promise((resolve, reject) => {
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error("Canvas could not generate image blob"));
+              return;
+            }
+            const blobUrl = URL.createObjectURL(blob);
+            const downloadLink = document.createElement("a");
+            downloadLink.download = fileName;
+            downloadLink.href = blobUrl;
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            setTimeout(() => {
+              if (document.body.contains(downloadLink)) {
+                document.body.removeChild(downloadLink);
+              }
+              // Keep blob URL alive for at least 60 seconds so Windows / Antivirus / Chrome download completes cleanly
+              setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            }, 1500);
+            resolve();
+          }, "image/png");
         });
-      }, "image/png");
+      }
+
+      toast({
+        title: "Timetable Downloaded",
+        description: `Option ${selectedIndex + 1} schedule exported successfully with crystal-clear text.`,
+      });
     } catch (err) {
       console.error("Failed to export timetable as image:", err);
       toast({
