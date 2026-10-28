@@ -110,5 +110,35 @@ describe('Course Registration Parsing & Generation', () => {
 
         expect(timetables.length).toBe(0);
     });
+
+    test('strictly prioritizes Discipline Core over Discipline Elective when both contest the same slot', () => {
+        // Slot B contested by ISWE404L (DC) and ISWE412L (DE)
+        const contestedCourses = [
+            { courseCode: 'ISWE206L', courseName: 'Web Tech', credits: 3, courseType: 'Theory', slot: 'A2+TA2', faculty: 'Prof A', venue: 'SJT1' },
+            { courseCode: 'ISWE404L', courseName: 'Design Patterns (DC)', credits: 3, courseType: 'Theory', slot: 'B2+TB2', faculty: 'Prof B', venue: 'SJT2' },
+            { courseCode: 'ISWE412L', courseName: 'Blockchain (DE)', credits: 3, courseType: 'Theory', slot: 'B2+TB2', faculty: 'Prof C', venue: 'SJT3' },
+            { courseCode: 'ISWE405L', courseName: 'Sec', credits: 3, courseType: 'Theory', slot: 'C2+TC2', faculty: 'Prof D', venue: 'SJT4' },
+            { courseCode: 'ISWE407L', courseName: 'UIUX', credits: 3, courseType: 'Theory', slot: 'D2+TD2', faculty: 'Prof E', venue: 'SJT5' },
+            { courseCode: 'ISWE309L', courseName: 'Cloud (DE)', credits: 3, courseType: 'Theory', slot: 'E2+TE2', faculty: 'Prof F', venue: 'SJT6' },
+            { courseCode: 'ISTS202P', courseName: 'Quant', credits: 1.5, courseType: 'Theory', slot: 'F2+TF2', faculty: 'Prof G', venue: 'SJT7' },
+            { courseCode: 'ISWE401L', courseName: 'IoT', credits: 3, courseType: 'Theory', slot: 'G2+TG2', faculty: 'Prof H', venue: 'SJT8' }
+        ];
+
+        const timetables = generateWithMetadata(contestedCourses, {
+            batchPreference: 'Evening',
+            maxTimetables: 5,
+            minCredits: 18,
+            maxCredits: 27
+        });
+
+        expect(timetables.length).toBeGreaterThan(0);
+        timetables.forEach((tt) => {
+            const codes = tt.courses.map((c) => c.courseCode);
+            // ISWE404L (Discipline Core) must be selected, NOT ISWE412L (Discipline Elective)
+            expect(codes).toContain('ISWE404L');
+            expect(codes).not.toContain('ISWE412L');
+            expect(tt.curriculumStats.isCoreGuaranteed).toBe(true);
+        });
+    });
 });
 

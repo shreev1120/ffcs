@@ -8,6 +8,7 @@ const {
     getTimetableBatch,
     parseSlotString
 } = require('../utils/slotMapping');
+const curriculumRules = require('./curriculumRules');
 
 function normalizeFacultyName(faculty) {
     return (faculty || '').toString().trim().toUpperCase();
@@ -165,38 +166,7 @@ function generateTimetables(courses, preferences = {}) {
  * @returns {array} Array of { courses, excludedGroupKeys, generationMode }
  */
 function getCourseCategoryPriority(category, courseCode) {
-    const cat = (category || '').toLowerCase();
-    const code = (courseCode || '').toUpperCase();
-
-    // Priority 1: Foundation Core & Mandatory Skills (ISTS Quantitative Skills, Soft Skills, HUM, ENG, MAT, CHY, PHY)
-    if (
-        cat.includes('foundation') ||
-        cat.includes('skill') ||
-        code.startsWith('ISTS') ||
-        code.startsWith('HUM') ||
-        code.startsWith('ENG')
-    ) {
-        return 1;
-    }
-
-    // Priority 2: Discipline Core (Major departmental core requirements)
-    if (
-        cat.includes('discipline core') ||
-        cat.includes('programme core') ||
-        cat.includes('program core') ||
-        (cat.includes('discipline') && !cat.includes('elective')) ||
-        cat === 'core'
-    ) {
-        return 2;
-    }
-
-    // Priority 3: Discipline-Linked Engineering Science (DLES)
-    if (cat.includes('dles') || cat.includes('linked') || cat.includes('engineering science')) {
-        return 3;
-    }
-
-    // Priority 4: Discipline Electives, Open Electives
-    return 4;
+    return curriculumRules.getCourseCategoryPriority(courseCode, category);
 }
 
 function generateCombinations(courses, preferences = {}) {
@@ -240,12 +210,17 @@ function generateCombinations(courses, preferences = {}) {
         return [];
     }
 
-    // Sort groups: Priority 1 (Foundation/Skills) first, then Discipline Core, DLES, Electives; then fewer options first
+    // Sort groups strictly by Curriculum Priority:
+    // Priority 1: FC (Foundation Core)
+    // Priority 2: DLES (Discipline-linked Engineering Sciences)
+    // Priority 3: DC (Discipline Core)
+    // Priority 4: DE (Discipline Elective)
+    // Within same priority: fewer options first
     optionGroups.sort((a, b) => {
         const firstA = (a.options && a.options[0]) || {};
         const firstB = (b.options && b.options[0]) || {};
-        const prioA = getCourseCategoryPriority(firstA.category, a.key);
-        const prioB = getCourseCategoryPriority(firstB.category, b.key);
+        const prioA = getCourseCategoryPriority(firstA.category, firstA.courseCode || a.groupKey);
+        const prioB = getCourseCategoryPriority(firstB.category, firstB.courseCode || b.groupKey);
         if (prioA !== prioB) return prioA - prioB;
         return a.options.length - b.options.length;
     });
@@ -257,6 +232,16 @@ function generateCombinations(courses, preferences = {}) {
     const suffixMaxCredits = new Array(optionGroups.length + 1).fill(0);
     for (let i = optionGroups.length - 1; i >= 0; i--) {
         suffixMaxCredits[i] = suffixMaxCredits[i + 1] + groupMaxCredits[i];
+    }
+
+    // Core groups precomputations (FC, DLES, DC):
+    const groupIsCore = optionGroups.map((g) => {
+        const first = (g.options && g.options[0]) || {};
+        return curriculumRules.isCoreCourse(first.courseCode || g.groupKey, first.category);
+    });
+    const suffixCoreGroups = new Array(optionGroups.length + 1).fill(0);
+    for (let i = optionGroups.length - 1; i >= 0; i--) {
+        suffixCoreGroups[i] = suffixCoreGroups[i + 1] + (groupIsCore[i] ? 1 : 0);
     }
 
     // If total possible credits across all available courses is less than minimum credits,
@@ -294,6 +279,7 @@ function generateCombinations(courses, preferences = {}) {
         return strictCombinations.map((courses) => ({
             courses,
             excludedGroupKeys: [],
+            coreCount: suffixCoreGroups[0],
             generationMode: 'strict'
         }));
     }
@@ -312,6 +298,28 @@ function generateCombinations(courses, preferences = {}) {
         requiredBandsMask |= m;
     });
 
+    // Check if covering all bands is mathematically possible within maxCredits:
+    let minBandCreditsSum = 0;
+    for (let b = 0; b < 7; b++) {
+        const bit = 1 << b;
+        if ((requiredBandsMask & bit) !== 0) {
+            let minCr = Infinity;
+            optionGroups.forEach((g) => {
+                const provides = (g.options || []).some((opt) => (getSlotTheoryMask(opt.slot) & bit) !== 0);
+                if (provides) {
+                    const gMin = Math.min(...(g.options || []).map((o) => Number(o.credits) || 3));
+                    if (gMin < minCr) minCr = gMin;
+                }
+            });
+            if (minCr !== Infinity) {
+                minBandCreditsSum += minCr;
+            }
+        }
+    }
+    if (minBandCreditsSum > maxCredits) {
+        requiredBandsMask = 0;
+    }
+
     const suffixMasks = new Array(optionGroups.length + 1).fill(0);
     for (let i = optionGroups.length - 1; i >= 0; i--) {
         suffixMasks[i] = suffixMasks[i + 1] | groupMasks[i];
@@ -320,6 +328,7 @@ function generateCombinations(courses, preferences = {}) {
     // Relaxed mode: skips unavoidable clashes and/or selects valid subsets within [minCredits, maxCredits]
     const relaxedCombinations = [];
     const tracker = {
+        bestCoreCount: -1,
         bestSelectedGroups: -1,
         seen: new Set(),
         iterations: 0,
@@ -334,6 +343,7 @@ function generateCombinations(courses, preferences = {}) {
         0,
         [],
         0,
+        0, // currentCoreCount
         relaxedCombinations,
         tracker,
         maxTimetables,
@@ -345,11 +355,15 @@ function generateCombinations(courses, preferences = {}) {
         suffixMaxCredits,
         0,
         requiredBandsMask,
-        suffixMasks
+        suffixMasks,
+        groupIsCore,
+        suffixCoreGroups
     );
 
-    // Sort relaxed combinations to prioritize higher course counts and higher credits within [minCredits, maxCredits]
+    // Sort relaxed combinations to prioritize higher core count, then higher total courses, then higher credits
     relaxedCombinations.sort((a, b) => {
+        const diffCore = (b.coreCount || 0) - (a.coreCount || 0);
+        if (diffCore !== 0) return diffCore;
         const diffCount = b.courses.length - a.courses.length;
         if (diffCount !== 0) return diffCount;
         const bCr = b.courses.reduce((sum, c) => sum + (c.credits || 0), 0);
@@ -362,6 +376,7 @@ function generateCombinations(courses, preferences = {}) {
     return finalCombos.map((combo) => ({
         courses: combo.courses,
         excludedGroupKeys: combo.excludedGroupKeys,
+        coreCount: combo.coreCount,
         generationMode: 'relaxed'
     }));
 }
@@ -419,16 +434,25 @@ function buildCourseOptionGroups(courses, batchPreference, selectedFaculties = [
         const seen = new Set();
         let uniqueOptions = [];
         candidateOptions.forEach((option) => {
+            const catCode = curriculumRules.getCourseCategory(option.courseCode, option.category);
+            const catName = curriculumRules.getCategoryFullName(catCode);
+            const catPrio = curriculumRules.getCourseCategoryPriority(option.courseCode, option.category);
+            const enrichedOption = {
+                ...option,
+                category: catName,
+                curriculumCategory: catCode,
+                categoryPriority: catPrio
+            };
             const optionKey = [
-                option.courseCode,
-                option.courseType,
-                option.slot,
-                option.faculty,
-                option.venue
+                enrichedOption.courseCode,
+                enrichedOption.courseType,
+                enrichedOption.slot,
+                enrichedOption.faculty,
+                enrichedOption.venue
             ].join('|');
             if (!seen.has(optionKey)) {
                 seen.add(optionKey);
-                uniqueOptions.push(option);
+                uniqueOptions.push(enrichedOption);
             }
         });
 
@@ -552,6 +576,7 @@ function backtrackOptionGroupsRelaxed(
     currentCredits,
     excludedGroupKeys,
     selectedGroupsCount,
+    currentCoreCount,
     allTimetables,
     tracker,
     maxResults,
@@ -563,23 +588,32 @@ function backtrackOptionGroupsRelaxed(
     suffixMaxCredits,
     currentTheoryMask,
     requiredBandsMask,
-    suffixMasks
+    suffixMasks,
+    groupIsCore,
+    suffixCoreGroups
 ) {
     if (tracker) {
         if (tracker.iterations++ > tracker.maxIterations) return;
         if ((tracker.iterations & 511) === 0 && Date.now() - tracker.startTime > tracker.maxDurationMs) return;
     }
 
+    // Curriculum Pruning: If remaining core groups cannot achieve the best known core count, prune immediately!
+    if (tracker && tracker.bestCoreCount > 0 && suffixCoreGroups) {
+        if (currentCoreCount + suffixCoreGroups[groupIndex] < tracker.bestCoreCount) {
+            return;
+        }
+    }
+
     // Compulsory requirement: Every combination must allocate all theory slots from A to G (or all available in input).
     // If remaining groups cannot possibly provide the missing required theory slots, prune this branch immediately!
-    if (suffixMasks && (currentTheoryMask | suffixMasks[groupIndex]) !== requiredBandsMask) {
+    if (requiredBandsMask && suffixMasks && (currentTheoryMask | suffixMasks[groupIndex]) !== requiredBandsMask) {
         return;
     }
 
     const remainingGroups = optionGroups.length - groupIndex;
 
     // Prune branches that cannot reach current best known solution
-    if (tracker.bestSelectedGroups > 0 && selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups) {
+    if (tracker && tracker.bestSelectedGroups > 0 && selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups) {
         return;
     }
 
@@ -599,10 +633,29 @@ function backtrackOptionGroupsRelaxed(
             return;
         }
 
-        if (selectedGroupsCount > tracker.bestSelectedGroups) {
+        // Core Priority Check: combinations with higher core count strictly supersede combinations with lower core count!
+        if (tracker && currentCoreCount > tracker.bestCoreCount) {
+            tracker.bestCoreCount = currentCoreCount;
             tracker.bestSelectedGroups = selectedGroupsCount;
-            // Retain combinations with best group count
-            const retained = allTimetables.filter((t) => t.courses.length >= tracker.bestSelectedGroups);
+            // Purge any previously saved timetables that have fewer core courses!
+            const retained = allTimetables.filter((t) => (t.coreCount || 0) >= tracker.bestCoreCount);
+            allTimetables.length = 0;
+            tracker.seen.clear();
+            retained.forEach((t) => {
+                allTimetables.push(t);
+                const sig = t.courses
+                    .map((c) => [c.courseCode, c.courseType, c.slot, c.faculty, c.venue].join('|'))
+                    .sort()
+                    .join('||') + '##' + [...t.excludedGroupKeys].sort().join('|');
+                tracker.seen.add(sig);
+            });
+        } else if (tracker && currentCoreCount < tracker.bestCoreCount) {
+            return; // Sub-optimal in core degree requirements
+        }
+
+        if (tracker && selectedGroupsCount > tracker.bestSelectedGroups) {
+            tracker.bestSelectedGroups = selectedGroupsCount;
+            const retained = allTimetables.filter((t) => (t.coreCount || 0) >= tracker.bestCoreCount && t.courses.length >= tracker.bestSelectedGroups);
             allTimetables.length = 0;
             tracker.seen.clear();
             retained.forEach((t) => {
@@ -615,7 +668,7 @@ function backtrackOptionGroupsRelaxed(
             });
         }
 
-        if (selectedGroupsCount >= tracker.bestSelectedGroups && allTimetables.length < maxResults * 2) {
+        if (selectedGroupsCount >= (tracker ? tracker.bestSelectedGroups : 0) && allTimetables.length < maxResults * 2) {
             if (validateTimetableBatchPurity(currentTimetable, batchPreference)) {
                 const courseSignature = currentTimetable
                     .map((course) => [course.courseCode, course.courseType, course.slot, course.faculty, course.venue].join('|'))
@@ -623,11 +676,12 @@ function backtrackOptionGroupsRelaxed(
                     .join('||');
                 const excludedSignature = [...excludedGroupKeys].sort().join('|');
                 const signature = `${courseSignature}##${excludedSignature}`;
-                if (!tracker.seen.has(signature)) {
-                    tracker.seen.add(signature);
+                if (!tracker || !tracker.seen.has(signature)) {
+                    if (tracker) tracker.seen.add(signature);
                     allTimetables.push({
                         courses: [...currentTimetable],
-                        excludedGroupKeys: [...excludedGroupKeys]
+                        excludedGroupKeys: [...excludedGroupKeys],
+                        coreCount: currentCoreCount
                     });
                 }
             }
@@ -637,6 +691,7 @@ function backtrackOptionGroupsRelaxed(
 
     const currentGroup = optionGroups[groupIndex];
     const currentSlots = currentTimetable.map((c) => c.slot);
+    const isCore = groupIsCore && groupIsCore[groupIndex];
 
     // Branch 1: Try selecting options from currentGroup
     for (const option of currentGroup.options) {
@@ -664,6 +719,7 @@ function backtrackOptionGroupsRelaxed(
             currentCredits + optCredits,
             excludedGroupKeys,
             selectedGroupsCount + 1,
+            currentCoreCount + (isCore ? 1 : 0),
             allTimetables,
             tracker,
             maxResults,
@@ -675,7 +731,9 @@ function backtrackOptionGroupsRelaxed(
             suffixMaxCredits,
             currentTheoryMask | optTheoryMask,
             requiredBandsMask,
-            suffixMasks
+            suffixMasks,
+            groupIsCore,
+            suffixCoreGroups
         );
         currentTimetable.pop();
         undoFacultyAssignment(facultyAssignment, selectedFacultyByFamily);
@@ -689,6 +747,7 @@ function backtrackOptionGroupsRelaxed(
         currentCredits,
         [...excludedGroupKeys, currentGroup.groupKey],
         selectedGroupsCount,
+        currentCoreCount,
         allTimetables,
         tracker,
         maxResults,
@@ -700,7 +759,9 @@ function backtrackOptionGroupsRelaxed(
         suffixMaxCredits,
         currentTheoryMask,
         requiredBandsMask,
-        suffixMasks
+        suffixMasks,
+        groupIsCore,
+        suffixCoreGroups
     );
 }
 
@@ -958,6 +1019,16 @@ function generateWithMetadata(courses, preferences = {}) {
     const combinations = generateCombinations(courses, effectivePreferences);
     const rankingCriteria = effectivePreferences.rankingCriteria || 'balanced';
 
+    // Total distinct core course groups in the input set
+    const uniqueCoreGroupKeys = new Set();
+    courses.forEach(c => {
+        if (curriculumRules.isCoreCourse(c.courseCode, c.category)) {
+            const type = (c.courseType || 'Theory').toString().trim().toUpperCase();
+            uniqueCoreGroupKeys.add(`${c.courseCode}::${type}`);
+        }
+    });
+    const totalCoreInInput = uniqueCoreGroupKeys.size;
+
     const scored = combinations
         .map((combo, index) => {
             const courseList = combo.courses;
@@ -966,6 +1037,18 @@ function generateWithMetadata(courses, preferences = {}) {
             const heuristic = computeHeuristicScore(schedule, features, rankingCriteria);
             const ttBatch = getTimetableBatch(courseList);
             const totalCredits = courseList.reduce((sum, c) => sum + (c.credits || 0), 0);
+
+            const coreCourses = courseList.filter(c => curriculumRules.isCoreCourse(c.courseCode, c.category));
+            const electiveCourses = courseList.filter(c => !curriculumRules.isCoreCourse(c.courseCode, c.category));
+            const coreCredits = coreCourses.reduce((sum, c) => sum + (c.credits || 0), 0);
+            const electiveCredits = electiveCourses.reduce((sum, c) => sum + (c.credits || 0), 0);
+            const curriculumStats = {
+                coreCount: coreCourses.length,
+                electiveCount: electiveCourses.length,
+                coreCredits,
+                electiveCredits,
+                isCoreGuaranteed: totalCoreInInput === 0 || coreCourses.length >= totalCoreInInput
+            };
 
             return {
                 timetableId: `TT-${Date.now()}-${index}`,
@@ -980,8 +1063,11 @@ function generateWithMetadata(courses, preferences = {}) {
                     batchShift: ttBatch,
                     rankingScore: heuristic.score,
                     rankingCriteria: heuristic.rankingCriteria,
-                    heuristicSummary: heuristic.summary
+                    heuristicSummary: heuristic.summary,
+                    curriculumStats
                 },
+                curriculumStats,
+                coreCount: coreCourses.length,
                 generationMode: combo.generationMode,
                 excludedCourseGroups: combo.excludedGroupKeys,
                 totalCourses: courseList.length,
@@ -990,8 +1076,12 @@ function generateWithMetadata(courses, preferences = {}) {
         })
         .filter((tt) => tt.totalCredits >= minCredits && tt.totalCredits <= maxCredits);
 
-    // Legitimate sorting: rank combinations highest score first!
-    scored.sort((a, b) => b.rankingScore - a.rankingScore);
+    // Legitimate sorting: rank combinations by core coverage first, then heuristic score!
+    scored.sort((a, b) => {
+        const diffCore = (b.coreCount || 0) - (a.coreCount || 0);
+        if (diffCore !== 0) return diffCore;
+        return b.rankingScore - a.rankingScore;
+    });
 
     // Assign rank 1..N
     scored.forEach((tt, idx) => {

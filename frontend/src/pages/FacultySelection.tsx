@@ -27,6 +27,13 @@ import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/api";
 import { ParsedCourse } from "@/lib/clientExcelParser";
 import { generateClientTimetables } from "@/lib/clientTimetableGenerator";
+import {
+  getCourseCategory,
+  getCategoryFullName,
+  getCourseCategoryPriority,
+  isCoreCourse,
+  CurriculumCategoryCode,
+} from "@/lib/curriculumRules";
 
 interface FacultyItem {
   name: string;
@@ -41,9 +48,43 @@ interface FacultyItem {
 interface SubjectCoverage {
   courseCode: string;
   courseName: string;
+  categoryCode: CurriculumCategoryCode;
+  categoryName: string;
+  categoryPriority: number;
+  isCore: boolean;
   totalOfferings: number;
   availableFaculties: string[];
   selectedCount: number;
+}
+
+function getCategoryBadge(catCode: string) {
+  switch (catCode) {
+    case "FC":
+      return {
+        label: "FC",
+        name: "Foundation Core",
+        badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-700",
+      };
+    case "DLES":
+      return {
+        label: "DLES",
+        name: "Discipline-linked Engg Science",
+        badgeClass: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-700",
+      };
+    case "DC":
+      return {
+        label: "DC",
+        name: "Discipline Core",
+        badgeClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700",
+      };
+    case "DE":
+    default:
+      return {
+        label: "DE",
+        name: "Discipline Elective",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700",
+      };
+  }
 }
 
 const FacultySelection = () => {
@@ -140,12 +181,13 @@ const FacultySelection = () => {
   const subjectCoverage = useMemo<SubjectCoverage[]>(() => {
     if (!courses || courses.length === 0) return [];
 
-    const subjectMap = new Map<string, { name: string; faculties: Set<string>; count: number }>();
+    const subjectMap = new Map<string, { name: string; category?: string; faculties: Set<string>; count: number }>();
     courses.forEach((c) => {
       const code = c.courseCode;
       if (!subjectMap.has(code)) {
         subjectMap.set(code, {
           name: c.courseName || c.title || code,
+          category: c.category,
           faculties: new Set(),
           count: 0,
         });
@@ -162,13 +204,30 @@ const FacultySelection = () => {
     subjectMap.forEach((entry, courseCode) => {
       const available = Array.from(entry.faculties);
       const selectedCount = available.filter((f) => selectedFaculties.has(f)).length;
+      const categoryCode = getCourseCategory(courseCode, entry.category);
+      const categoryName = getCategoryFullName(categoryCode);
+      const categoryPriority = getCourseCategoryPriority(courseCode, entry.category);
+      const isCore = isCoreCourse(courseCode, entry.category);
+
       coverage.push({
         courseCode,
         courseName: entry.name,
+        categoryCode,
+        categoryName,
+        categoryPriority,
+        isCore,
         totalOfferings: entry.count,
         availableFaculties: available,
         selectedCount,
       });
+    });
+
+    // Priority sorting: Core requirements first (FC: 1 -> DLES: 2 -> DC: 3 -> DE: 4)
+    coverage.sort((a, b) => {
+      if (a.categoryPriority !== b.categoryPriority) {
+        return a.categoryPriority - b.categoryPriority;
+      }
+      return a.courseCode.localeCompare(b.courseCode);
     });
 
     return coverage;
@@ -178,6 +237,14 @@ const FacultySelection = () => {
   const coveredSubjectCount = useMemo(() => {
     return subjectCoverage.filter((s) => s.selectedCount > 0).length;
   }, [subjectCoverage]);
+
+  const coreSubjectCount = useMemo(() => {
+    return subjectCoverage.filter((s) => s.isCore).length;
+  }, [subjectCoverage]);
+
+  const electiveSubjectCount = useMemo(() => {
+    return subjectCoverage.length - coreSubjectCount;
+  }, [subjectCoverage, coreSubjectCount]);
 
   // Filter faculties based on search, subject, and view tab
   const filteredFaculties = useMemo(() => {
@@ -443,6 +510,11 @@ const FacultySelection = () => {
                   <span>{subjectCoverage.length} Subjects in Sheet</span>
                 </span>
 
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-semibold">
+                  <GraduationCap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Curriculum Priority: {coreSubjectCount} Core (100% Guaranteed) • {electiveSubjectCount} Electives</span>
+                </span>
+
                 <span
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded font-bold border ${
                     selectedFaculties.size > 0
@@ -512,7 +584,7 @@ const FacultySelection = () => {
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
             {coveredSubjectCount === subjectCoverage.length
               ? "All subjects have preferred faculty selected! Zero random teachers."
-              : "Subjects with 0 selected faculty will consider all available teachers for that subject."}
+              : "Core subjects (FC, DLES, DC) are guaranteed 100% allocation first before Electives (DE)."}
           </p>
         </div>
 
@@ -521,6 +593,7 @@ const FacultySelection = () => {
           {subjectCoverage.map((sub) => {
             const isSelected = sub.selectedCount > 0;
             const isActiveFilter = subjectFilter === sub.courseCode;
+            const badge = getCategoryBadge(sub.categoryCode);
 
             return (
               <button
@@ -534,9 +607,12 @@ const FacultySelection = () => {
                     ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
                     : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                 }`}
-                title={`Click to filter list by ${sub.courseCode}`}
+                title={`${sub.courseCode} (${badge.name}) - Click to filter list`}
               >
                 <div className="flex items-center gap-1.5">
+                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${badge.badgeClass}`}>
+                    {sub.categoryCode}
+                  </span>
                   <span className="font-mono font-bold">{sub.courseCode}</span>
                   {isSelected ? (
                     <span className="text-[10px] font-bold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
@@ -703,6 +779,8 @@ const FacultySelection = () => {
                 <div className="space-y-1.5 mt-3 pt-2.5 border-t border-slate-150 dark:border-slate-800 text-[11px]">
                   {fac.courses.map((c, idx) => {
                     const isLab = c.isLab || c.courseType?.toLowerCase().includes("lab");
+                    const catCode = c.curriculumCategory || getCourseCategory(c.courseCode, c.category);
+                    const badge = getCategoryBadge(catCode);
 
                     return (
                       <div
@@ -710,6 +788,9 @@ const FacultySelection = () => {
                         className="flex items-center justify-between gap-2 p-1.5 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60"
                       >
                         <div className="min-w-0 flex-1 flex items-center gap-1.5 truncate">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${badge.badgeClass}`}>
+                            {catCode}
+                          </span>
                           <span className="font-mono font-bold text-[#2455a3] dark:text-blue-300 shrink-0">
                             {c.courseCode}
                           </span>

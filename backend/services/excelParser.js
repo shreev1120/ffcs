@@ -1,6 +1,7 @@
 const xlsx = require('xlsx');
 const path = require('path');
 const { getSlotBatch } = require('../utils/slotMapping');
+const curriculumRules = require('./curriculumRules');
 
 /**
  * Parse VIT FFCS Excel file
@@ -155,12 +156,18 @@ function parseCourseRow(row, index) {
             }
         }
 
+        const catCode = curriculumRules.getCourseCategory(courseCode, category);
+        const catName = curriculumRules.getCategoryFullName(catCode);
+        const catPrio = curriculumRules.getCourseCategoryPriority(courseCode, category);
+
         return {
             slNo: parseInt(slNo) || (index + 1),
             courseCode: courseCode.toString().trim().toUpperCase(),
             courseName: courseName.toString().trim(),
             credits: parsedCredits,
-            category: category ? category.toString().trim() : 'N/A',
+            category: catName,
+            curriculumCategory: catCode,
+            categoryPriority: catPrio,
             registrationType: regType ? regType.toString().trim() : 'Regular',
             courseType: determinedType,
             slot: slotStr.trim(),

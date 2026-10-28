@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { getSlotBatch } from "./clientSlotUtils";
+import { getCourseCategory, getCategoryFullName, getCourseCategoryPriority } from "./curriculumRules";
 
 export interface ParsedCourse {
   slNo: number;
@@ -9,6 +10,8 @@ export interface ParsedCourse {
   title?: string;
   credits: number;
   category: string;
+  curriculumCategory?: string;
+  categoryPriority?: number;
   registrationType: string;
   courseType: string;
   type?: string;
@@ -150,6 +153,10 @@ export function parseCourseRow(row: Record<string, unknown>, index: number): Par
     const theorySlots = isLab ? [] : [slotStr];
     const labSlots = isLab ? [slotStr] : [];
 
+    const catCode = getCourseCategory(courseCode, category);
+    const catName = getCategoryFullName(catCode);
+    const catPrio = getCourseCategoryPriority(courseCode, category);
+
     return {
       slNo: parseInt(slNo, 10) || index + 1,
       courseCode: courseCode.trim().toUpperCase(),
@@ -157,7 +164,9 @@ export function parseCourseRow(row: Record<string, unknown>, index: number): Par
       courseName: courseName.trim(),
       title: courseName.trim(),
       credits: parsedCredits,
-      category: category ? category.trim() : "N/A",
+      category: catName,
+      curriculumCategory: catCode,
+      categoryPriority: catPrio,
       registrationType: regType ? regType.trim() : "Regular",
       courseType: determinedType,
       type: determinedType,

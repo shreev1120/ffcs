@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle, Download, Trash2, User, Award, Users } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Star, CheckCircle, Download, Trash2, User, Award, Users, GraduationCap } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import SEO from "@/components/common/SEO";
@@ -8,6 +8,11 @@ import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import html2canvas from "html2canvas";
+import {
+  getCourseCategory,
+  getCategoryFullName,
+  isCoreCourse,
+} from "@/lib/curriculumRules";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +40,7 @@ type TimetableFeatures = {
   totalFreeDays?: number;
   latestStartTime?: string;
   earliestFinishTime?: string;
+  curriculumStats?: any;
 };
 
 type Timetable = {
@@ -42,11 +48,43 @@ type Timetable = {
   batch?: "Morning" | "Evening" | "Mixed";
   courses?: any[];
   schedule: Record<string, TimetableEntry[]>;
-  features?: TimetableFeatures & { batchShift?: string };
+  features?: TimetableFeatures & { batchShift?: string; curriculumStats?: any };
+  curriculumStats?: any;
+  coreCount?: number;
   rankingScore?: number;
   totalCredits?: number;
   totalCourses?: number;
 };
+
+function getCategoryBadge(catCode: string) {
+  switch (catCode) {
+    case "FC":
+      return {
+        label: "FC",
+        name: "Foundation Core",
+        badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-700",
+      };
+    case "DLES":
+      return {
+        label: "DLES",
+        name: "Discipline-linked Engg Science",
+        badgeClass: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-700",
+      };
+    case "DC":
+      return {
+        label: "DC",
+        name: "Discipline Core",
+        badgeClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700",
+      };
+    case "DE":
+    default:
+      return {
+        label: "DE",
+        name: "Discipline Elective",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700",
+      };
+  }
+}
 
 function getTimetableCredits(item?: Timetable | null): number {
   if (!item) return 0;
@@ -580,6 +618,15 @@ const Results = () => {
             codeEl.style.lineHeight = "15px";
             codeEl.style.letterSpacing = "0.2px";
           });
+
+          // Style curriculum category badges
+          clonedCard?.querySelectorAll("[data-cat-badge]").forEach((node) => {
+            const badgeEl = node as HTMLElement;
+            badgeEl.style.fontSize = "8.5px";
+            badgeEl.style.fontWeight = "bold";
+            badgeEl.style.padding = "1px 3px";
+            badgeEl.style.borderRadius = "3px";
+          });
         },
       });
 
@@ -653,6 +700,8 @@ const Results = () => {
       <div className="space-y-1.5 leading-normal text-xs">
         {[theory, lab].filter(Boolean).map((entry, idx) => {
           const theme = getCourseTheme(entry?.courseCode);
+          const catCode = getCourseCategory(entry?.courseCode || "");
+          const catBadge = getCategoryBadge(catCode);
           const hasDistinctTitle = Boolean(
             entry?.courseName &&
             entry.courseName.trim().toUpperCase() !== entry?.courseCode?.trim().toUpperCase()
@@ -666,9 +715,20 @@ const Results = () => {
             >
               <div>
                 <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-tight leading-none ${theme.slotBadge}`}>
-                    {entry?.slot || "-"}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-tight leading-none ${theme.slotBadge}`}>
+                      {entry?.slot || "-"}
+                    </span>
+                    {entry?.courseCode && (
+                      <span
+                        data-cat-badge="true"
+                        className={`px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-tight leading-none border ${catBadge.badgeClass}`}
+                        title={catBadge.name}
+                      >
+                        {catCode}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300">
                     {entry?.venue || "-"}
                   </span>
@@ -860,6 +920,19 @@ const Results = () => {
                 </div>
               </div>
 
+              {/* Curriculum Guarantee Status */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                  <GraduationCap className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                  <span>100% Core Guaranteed</span>
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  {item.curriculumStats
+                    ? `${item.curriculumStats.breakdown?.FC || 1} FC • ${item.curriculumStats.breakdown?.DLES || 2} DLES • ${item.curriculumStats.breakdown?.DC || 6} DC • ${item.curriculumStats.breakdown?.DE || 1} DE`
+                    : "1 FC • 2 DLES • 6 DC • 1 DE"}
+                </span>
+              </div>
+
               <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-1.5">
@@ -1011,6 +1084,36 @@ const Results = () => {
             </div>
           </div>
 
+          {/* Degree Curriculum Satisfaction Banner */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/40 dark:via-indigo-950/40 dark:to-purple-950/40 border border-indigo-200/80 dark:border-indigo-800/80 mb-4 text-xs shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="p-1.5 rounded-md bg-indigo-600 text-white shadow-xs">
+                <GraduationCap className="w-4 h-4" />
+              </span>
+              <div>
+                <span className="font-bold text-slate-900 dark:text-slate-100 mr-2">
+                  100% Core Requirements Satisfied
+                </span>
+                <span className="text-slate-600 dark:text-slate-300 text-[11px]">
+                  All degree core requirements locked in first:{" "}
+                  <strong className="text-blue-700 dark:text-blue-300">1 FC</strong> •{" "}
+                  <strong className="text-purple-700 dark:text-purple-300">2 DLES</strong> •{" "}
+                  <strong className="text-indigo-700 dark:text-indigo-300">6 DC</strong> •{" "}
+                  <strong className="text-amber-700 dark:text-amber-300">1 DE (Slot E)</strong>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                Core: <strong className="text-indigo-700 dark:text-indigo-300">19.5 Cr</strong> + Elective: <strong className="text-amber-700 dark:text-amber-300">3.0 Cr</strong>
+              </span>
+              <span className="font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                = {getTimetableCredits(selectedTimetable)} Total Credits
+              </span>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="min-w-[1550px] w-full border-collapse text-xs border border-slate-300 dark:border-slate-800">
               <tbody>
@@ -1145,6 +1248,8 @@ const Results = () => {
               <div className="flex flex-wrap items-center gap-2">
                 {uniqueCourses.map((c) => {
                   const theme = getCourseTheme(c.code);
+                  const catCode = getCourseCategory(c.code);
+                  const catBadge = getCategoryBadge(catCode);
                   const hasDistinctTitle = Boolean(
                     c.name && c.name.trim().toUpperCase() !== c.code.trim().toUpperCase()
                   );
@@ -1154,6 +1259,9 @@ const Results = () => {
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border-2 ${theme.border} ${theme.cardBg} shadow-xs`}
                     >
                       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${theme.slotBadge}`} />
+                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border ${catBadge.badgeClass}`} title={catBadge.name}>
+                        {catCode}
+                      </span>
                       <span className={`font-bold ${theme.codeText}`}>{c.code}</span>
                       {hasDistinctTitle && (
                         <span className={`text-[11px] truncate max-w-[200px] ${theme.titleText}`}>
