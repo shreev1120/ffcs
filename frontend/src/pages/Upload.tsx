@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 
 const Upload = () => {
+  const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
