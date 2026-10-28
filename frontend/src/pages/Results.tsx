@@ -370,6 +370,67 @@ const Results = () => {
     return Array.from(map.values());
   }, [selectedTimetable]);
 
+  const handleNextCombination = () => {
+    if (selectedIndex < filteredTimetables.length - 1) {
+      const nextIdx = selectedIndex + 1;
+      setSelectedIndex(nextIdx);
+      const targetPage = Math.floor(nextIdx / PAGE_SIZE) + 1;
+      if (targetPage !== page) {
+        setPage(targetPage);
+      }
+      timetableCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handlePrevCombination = () => {
+    if (selectedIndex > 0) {
+      const prevIdx = selectedIndex - 1;
+      setSelectedIndex(prevIdx);
+      const targetPage = Math.floor(prevIdx / PAGE_SIZE) + 1;
+      if (targetPage !== page) {
+        setPage(targetPage);
+      }
+      timetableCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handleSelectCombinationIndex = (idx: number) => {
+    if (idx >= 0 && idx < filteredTimetables.length) {
+      setSelectedIndex(idx);
+      const targetPage = Math.floor(idx / PAGE_SIZE) + 1;
+      if (targetPage !== page) {
+        setPage(targetPage);
+      }
+      timetableCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Keyboard navigation: Press [Right Arrow] for next combination, [Left Arrow] for previous
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "SELECT"
+      ) {
+        return;
+      }
+
+      if (e.key === "ArrowRight") {
+        if (selectedIndex < filteredTimetables.length - 1) {
+          handleNextCombination();
+        }
+      } else if (e.key === "ArrowLeft") {
+        if (selectedIndex > 0) {
+          handlePrevCombination();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedIndex, filteredTimetables.length, page]);
+
   const handleDeleteCombination = async (timetableId: string, optionNumber: number) => {
     const currentList = timetableData?.timetables || [];
     const updatedList = currentList.filter((t) => t.timetableId !== timetableId);
@@ -865,19 +926,67 @@ const Results = () => {
       {/* Detailed VTOP Weekly Slot Table */}
       {selectedTimetable && (
         <div ref={timetableCardRef} data-timetable-card="true" className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded shadow-card p-5 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Weekly Timetable Grid: Combination {selectedIndex + 1}
-              </h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                Shift:{" "}
-                <span className="font-bold text-[#2455a3] dark:text-blue-400">
-                  {detectTimetableShift(selectedTimetable)} Shift
-                </span>
-                {" "}• {detectTimetableShift(selectedTimetable) === "Morning" ? "Theory 08:00 - 13:00 (A1 series) & Labs 14:00 - 19:30 (L31 to L60)" : "Labs 08:00 - 13:20 (L1 to L30) & Theory 14:00 - 19:00 (A2 series)"}
-              </p>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>Weekly Timetable Grid: Combination {selectedIndex + 1}</span>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    of {filteredTimetables.length}
+                  </span>
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Shift:{" "}
+                  <span className="font-bold text-[#2455a3] dark:text-blue-400">
+                    {detectTimetableShift(selectedTimetable)} Shift
+                  </span>
+                  {" "}• {detectTimetableShift(selectedTimetable) === "Morning" ? "Theory 08:00 - 13:00 (A1 series) & Labs 14:00 - 19:30 (L31 to L60)" : "Labs 08:00 - 13:20 (L1 to L30) & Theory 14:00 - 19:00 (A2 series)"}
+                </p>
+              </div>
+
+              {/* Combination Switcher Controller */}
+              <div className="flex items-center gap-1.5 sm:ml-2 bg-slate-50 dark:bg-slate-800/80 p-1 rounded-lg border border-slate-200 dark:border-slate-700" data-html2canvas-ignore="true">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={selectedIndex === 0}
+                  onClick={handlePrevCombination}
+                  title="Previous Combination (ArrowLeft)"
+                  className="h-8 px-2.5 text-xs font-semibold border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 rounded disabled:opacity-40"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 mr-0.5" />
+                  <span>Prev</span>
+                </Button>
+
+                {/* Quick Dropdown Selector */}
+                <select
+                  value={selectedIndex}
+                  onChange={(e) => handleSelectCombinationIndex(Number(e.target.value))}
+                  className="h-8 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 text-slate-800 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#2455a3]"
+                  title="Jump to specific combination"
+                >
+                  {filteredTimetables.map((_, i) => (
+                    <option key={i} value={i}>
+                      Combo {i + 1} of {filteredTimetables.length}
+                    </option>
+                  ))}
+                </select>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={selectedIndex === filteredTimetables.length - 1}
+                  onClick={handleNextCombination}
+                  title="Next Combination (ArrowRight)"
+                  className="h-8 px-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-sm disabled:opacity-40 flex items-center gap-1"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
+
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 px-2.5 py-1 rounded border border-blue-200 dark:border-blue-800 font-semibold flex items-center gap-1">
                 <Award className="w-3.5 h-3.5" />
@@ -1057,6 +1166,61 @@ const Results = () => {
               </div>
             </div>
           )}
+
+          {/* Bottom Combination Navigation Controller */}
+          <div
+            data-html2canvas-ignore="true"
+            className="mt-5 pt-3.5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
+          >
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+              <span className="font-semibold text-slate-900 dark:text-slate-100">
+                Combination {selectedIndex + 1} of {filteredTimetables.length}
+              </span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden md:inline">
+                • Press <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-mono">←</kbd> and <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-mono">→</kbd> keys to cycle combinations
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={selectedIndex === 0}
+                onClick={handlePrevCombination}
+                title="Previous Combination (ArrowLeft)"
+                className="h-8 px-3 text-xs font-semibold border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded disabled:opacity-40"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 mr-1" />
+                Previous Combination
+              </Button>
+
+              <select
+                value={selectedIndex}
+                onChange={(e) => handleSelectCombinationIndex(Number(e.target.value))}
+                className="h-8 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 text-slate-800 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#2455a3]"
+                title="Jump to specific combination"
+              >
+                {filteredTimetables.map((_, i) => (
+                  <option key={i} value={i}>
+                    Combo {i + 1} of {filteredTimetables.length}
+                  </option>
+                ))}
+              </select>
+
+              <Button
+                type="button"
+                size="sm"
+                disabled={selectedIndex === filteredTimetables.length - 1}
+                onClick={handleNextCombination}
+                title="Next Combination (ArrowRight)"
+                className="h-8 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-sm disabled:opacity-40 flex items-center gap-1.5"
+              >
+                <span>Next Combination</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </DashboardLayout>
