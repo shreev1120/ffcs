@@ -5,7 +5,8 @@ const {
     isLabCourse,
     getTimeSlots,
     validateTimetableBatchPurity,
-    getTimetableBatch
+    getTimetableBatch,
+    parseSlotString
 } = require('../utils/slotMapping');
 
 function normalizeFacultyName(faculty) {
@@ -27,6 +28,33 @@ function getCourseFamilyKey(courseCode) {
     const code = (courseCode || '').toString().trim().toUpperCase();
     const match = code.match(/^([A-Z]{2,}\d{3,4})[A-Z]$/);
     return match ? match[1] : code;
+}
+
+function getCoveredTheorySlotBands(slotString) {
+    const bands = new Set();
+    const codes = parseSlotString(slotString || '');
+    codes.forEach((code) => {
+        const norm = code.trim().toUpperCase();
+        const match = norm.match(/^T?T?([A-G])[12]$/);
+        if (match) {
+            bands.add(match[1]);
+        }
+    });
+    return bands;
+}
+
+function theoryBandToBit(band) {
+    const code = band.toUpperCase().charCodeAt(0) - 65; // A=0, B=1, ... G=6
+    return code >= 0 && code <= 6 ? 1 << code : 0;
+}
+
+function getSlotTheoryMask(slot) {
+    let mask = 0;
+    const bands = getCoveredTheorySlotBands(slot);
+    bands.forEach((b) => {
+        mask |= theoryBandToBit(b);
+    });
+    return mask;
 }
 
 function buildFacultyConstraintFamilies(optionGroups) {
@@ -270,6 +298,25 @@ function generateCombinations(courses, preferences = {}) {
         }));
     }
 
+    // Precompute required theory slots (A through G) bitmasks
+    const groupMasks = optionGroups.map((g) => {
+        let m = 0;
+        (g.options || []).forEach((opt) => {
+            m |= getSlotTheoryMask(opt.slot);
+        });
+        return m;
+    });
+
+    let requiredBandsMask = 0;
+    groupMasks.forEach((m) => {
+        requiredBandsMask |= m;
+    });
+
+    const suffixMasks = new Array(optionGroups.length + 1).fill(0);
+    for (let i = optionGroups.length - 1; i >= 0; i--) {
+        suffixMasks[i] = suffixMasks[i + 1] | groupMasks[i];
+    }
+
     // Relaxed mode: skips unavoidable clashes and/or selects valid subsets within [minCredits, maxCredits]
     const relaxedCombinations = [];
     const tracker = {
@@ -295,7 +342,10 @@ function generateCombinations(courses, preferences = {}) {
         batchPreference,
         minCredits,
         maxCredits,
-        suffixMaxCredits
+        suffixMaxCredits,
+        0,
+        requiredBandsMask,
+        suffixMasks
     );
 
     // Sort relaxed combinations to prioritize higher course counts and higher credits within [minCredits, maxCredits]
@@ -494,17 +544,26 @@ function backtrackOptionGroupsRelaxed(
     batchPreference,
     minCredits,
     maxCredits,
-    suffixMaxCredits
+    suffixMaxCredits,
+    currentTheoryMask,
+    requiredBandsMask,
+    suffixMasks
 ) {
     if (tracker) {
         if (tracker.iterations++ > tracker.maxIterations) return;
         if ((tracker.iterations & 511) === 0 && Date.now() - tracker.startTime > tracker.maxDurationMs) return;
     }
 
+    // Compulsory requirement: Every combination must allocate all theory slots from A to G (or all available in input).
+    // If remaining groups cannot possibly provide the missing required theory slots, prune this branch immediately!
+    if (suffixMasks && (currentTheoryMask | suffixMasks[groupIndex]) !== requiredBandsMask) {
+        return;
+    }
+
     const remainingGroups = optionGroups.length - groupIndex;
 
-    // Prune branches that cannot reach within 1 group of current best known solution
-    if (tracker.bestSelectedGroups > 0 && selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups - 1) {
+    // Prune branches that cannot reach current best known solution
+    if (tracker.bestSelectedGroups > 0 && selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups) {
         return;
     }
 
@@ -515,14 +574,19 @@ function backtrackOptionGroupsRelaxed(
 
     // Base case: all groups evaluated
     if (groupIndex >= optionGroups.length) {
-        if (selectedGroupsCount <= 0 || currentCredits < minCredits || currentCredits > maxCredits) {
+        if (
+            selectedGroupsCount <= 0 ||
+            currentCredits < minCredits ||
+            currentCredits > maxCredits ||
+            (requiredBandsMask && currentTheoryMask !== requiredBandsMask)
+        ) {
             return;
         }
 
         if (selectedGroupsCount > tracker.bestSelectedGroups) {
             tracker.bestSelectedGroups = selectedGroupsCount;
-            // Retain combinations within 1 group count of new best
-            const retained = allTimetables.filter((t) => t.courses.length >= tracker.bestSelectedGroups - 1);
+            // Retain combinations with best group count
+            const retained = allTimetables.filter((t) => t.courses.length >= tracker.bestSelectedGroups);
             allTimetables.length = 0;
             tracker.seen.clear();
             retained.forEach((t) => {
@@ -535,7 +599,7 @@ function backtrackOptionGroupsRelaxed(
             });
         }
 
-        if (selectedGroupsCount >= tracker.bestSelectedGroups - 1 && allTimetables.length < maxResults * 2) {
+        if (selectedGroupsCount >= tracker.bestSelectedGroups && allTimetables.length < maxResults * 2) {
             if (validateTimetableBatchPurity(currentTimetable, batchPreference)) {
                 const courseSignature = currentTimetable
                     .map((course) => [course.courseCode, course.courseType, course.slot, course.faculty, course.venue].join('|'))
@@ -575,6 +639,7 @@ function backtrackOptionGroupsRelaxed(
             continue;
         }
 
+        const optTheoryMask = getSlotTheoryMask(option.slot);
         currentTimetable.push(option);
         backtrackOptionGroupsRelaxed(
             optionGroups,
@@ -591,7 +656,10 @@ function backtrackOptionGroupsRelaxed(
             batchPreference,
             minCredits,
             maxCredits,
-            suffixMaxCredits
+            suffixMaxCredits,
+            currentTheoryMask | optTheoryMask,
+            requiredBandsMask,
+            suffixMasks
         );
         currentTimetable.pop();
         undoFacultyAssignment(facultyAssignment, selectedFacultyByFamily);
@@ -613,7 +681,10 @@ function backtrackOptionGroupsRelaxed(
         batchPreference,
         minCredits,
         maxCredits,
-        suffixMaxCredits
+        suffixMaxCredits,
+        currentTheoryMask,
+        requiredBandsMask,
+        suffixMasks
     );
 }
 

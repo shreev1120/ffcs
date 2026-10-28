@@ -6,6 +6,7 @@ import {
   getTimeSlots,
   validateTimetableBatchPurity,
   getTimetableBatch,
+  parseSlotString,
 } from "./clientSlotUtils";
 import { ParsedCourse } from "./clientExcelParser";
 
@@ -84,6 +85,33 @@ function getCourseFamilyKey(courseCode?: string): string {
   const code = (courseCode || "").trim().toUpperCase();
   const match = code.match(/^([A-Z]{2,}\d{3,4})[A-Z]$/);
   return match ? match[1] : code;
+}
+
+export function getCoveredTheorySlotBands(slotString: string): Set<string> {
+  const bands = new Set<string>();
+  const codes = parseSlotString(slotString || "");
+  codes.forEach((code) => {
+    const norm = code.trim().toUpperCase();
+    const match = norm.match(/^T?T?([A-G])[12]$/);
+    if (match) {
+      bands.add(match[1]);
+    }
+  });
+  return bands;
+}
+
+export function theoryBandToBit(band: string): number {
+  const code = band.toUpperCase().charCodeAt(0) - 65; // A=0, B=1, ... G=6
+  return code >= 0 && code <= 6 ? 1 << code : 0;
+}
+
+export function getSlotTheoryMask(slot: string): number {
+  let mask = 0;
+  const bands = getCoveredTheorySlotBands(slot);
+  bands.forEach((b) => {
+    mask |= theoryBandToBit(b);
+  });
+  return mask;
 }
 
 function getCourseCategoryPriority(category?: string, courseCode?: string): number {
@@ -288,6 +316,25 @@ function generateCombinations(
     suffixMaxCredits[i] = suffixMaxCredits[i + 1] + groupMaxCr;
   }
 
+  // Precompute required theory slots (A through G) bitmasks
+  const groupMasks: number[] = optionGroups.map((g) => {
+    let m = 0;
+    g.options.forEach((opt) => {
+      m |= getSlotTheoryMask(opt.slot);
+    });
+    return m;
+  });
+
+  let requiredBandsMask = 0;
+  groupMasks.forEach((m) => {
+    requiredBandsMask |= m;
+  });
+
+  const suffixMasks = new Array(optionGroups.length + 1).fill(0);
+  for (let i = optionGroups.length - 1; i >= 0; i--) {
+    suffixMasks[i] = suffixMasks[i + 1] | groupMasks[i];
+  }
+
   const allTimetables: RawCombo[] = [];
   const tracker = {
     iterations: 0,
@@ -305,13 +352,20 @@ function generateCombinations(
     currentCredits: number,
     selectedGroupsCount: number,
     excludedGroupKeys: string[],
-    selectedFacultyByFamily: Map<string, string>
+    selectedFacultyByFamily: Map<string, string>,
+    currentTheoryMask: number
   ) {
     if (tracker.iterations++ > tracker.maxIterations) return;
     if ((tracker.iterations & 511) === 0 && Date.now() - tracker.startTime > tracker.maxDurationMs) return;
 
+    // Compulsory requirement: Every combination must allocate all theory slots from A to G (or all available in input).
+    // If remaining groups cannot possibly provide the missing required theory slots, prune this branch immediately!
+    if ((currentTheoryMask | suffixMasks[groupIndex]) !== requiredBandsMask) {
+      return;
+    }
+
     const remainingGroups = optionGroups.length - groupIndex;
-    if (tracker.bestSelectedGroups > 0 && selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups - 1) {
+    if (tracker.bestSelectedGroups > 0 && selectedGroupsCount + remainingGroups < tracker.bestSelectedGroups) {
       return;
     }
 
@@ -320,13 +374,19 @@ function generateCombinations(
     }
 
     if (groupIndex >= optionGroups.length) {
-      if (selectedGroupsCount <= 0 || currentCredits < minCredits || currentCredits > maxCredits) {
+      // Must cover all required theory slots from A to G
+      if (
+        selectedGroupsCount <= 0 ||
+        currentCredits < minCredits ||
+        currentCredits > maxCredits ||
+        currentTheoryMask !== requiredBandsMask
+      ) {
         return;
       }
 
       if (selectedGroupsCount > tracker.bestSelectedGroups) {
         tracker.bestSelectedGroups = selectedGroupsCount;
-        const retained = allTimetables.filter((t) => t.courses.length >= tracker.bestSelectedGroups - 1);
+        const retained = allTimetables.filter((t) => t.courses.length >= tracker.bestSelectedGroups);
         allTimetables.length = 0;
         tracker.seen.clear();
         tracker.courseSetCounts.clear();
@@ -339,7 +399,7 @@ function generateCombinations(
         });
       }
 
-      if (selectedGroupsCount >= tracker.bestSelectedGroups - 1 && allTimetables.length < maxTimetables * 2) {
+      if (selectedGroupsCount >= tracker.bestSelectedGroups && allTimetables.length < maxTimetables * 2) {
         if (validateTimetableBatchPurity(currentTimetable, batchPreference)) {
           const courseSig = currentTimetable.map((c) => `${c.courseCode}|${c.slot}|${c.faculty}`).sort().join("||");
           if (!tracker.seen.has(courseSig)) {
@@ -393,6 +453,7 @@ function generateCombinations(
       }
 
       if (!facultyConflict) {
+        const optTheoryMask = getSlotTheoryMask(option.slot);
         currentTimetable.push(option);
         backtrack(
           groupIndex + 1,
@@ -400,7 +461,8 @@ function generateCombinations(
           currentCredits + optionCredits,
           selectedGroupsCount + 1,
           excludedGroupKeys,
-          selectedFacultyByFamily
+          selectedFacultyByFamily,
+          currentTheoryMask | optTheoryMask
         );
         currentTimetable.pop();
       }
@@ -420,12 +482,13 @@ function generateCombinations(
       currentCredits,
       selectedGroupsCount,
       excludedGroupKeys,
-      selectedFacultyByFamily
+      selectedFacultyByFamily,
+      currentTheoryMask
     );
     excludedGroupKeys.pop();
   }
 
-  backtrack(0, [], 0, 0, [], new Map());
+  backtrack(0, [], 0, 0, [], new Map(), 0);
 
   // If no combination was found with strict minCredits, relax credit threshold down to available
   if (allTimetables.length === 0) {
