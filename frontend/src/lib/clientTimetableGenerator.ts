@@ -86,6 +86,41 @@ function getCourseFamilyKey(courseCode?: string): string {
   return match ? match[1] : code;
 }
 
+function getCourseCategoryPriority(category?: string, courseCode?: string): number {
+  const cat = (category || "").toLowerCase();
+  const code = (courseCode || "").toUpperCase();
+
+  // Priority 1: Foundation Core & Mandatory Skills (ISTS Quantitative Skills, Soft Skills, HUM, ENG, MAT, CHY, PHY)
+  if (
+    cat.includes("foundation") ||
+    cat.includes("skill") ||
+    code.startsWith("ISTS") ||
+    code.startsWith("HUM") ||
+    code.startsWith("ENG")
+  ) {
+    return 1;
+  }
+
+  // Priority 2: Discipline Core (Major departmental core requirements)
+  if (
+    cat.includes("discipline core") ||
+    cat.includes("programme core") ||
+    cat.includes("program core") ||
+    (cat.includes("discipline") && !cat.includes("elective")) ||
+    cat === "core"
+  ) {
+    return 2;
+  }
+
+  // Priority 3: Discipline-Linked Engineering Science (DLES)
+  if (cat.includes("dles") || cat.includes("linked") || cat.includes("engineering science")) {
+    return 3;
+  }
+
+  // Priority 4: Discipline Electives, Open Electives, Bridge courses
+  return 4;
+}
+
 interface CourseOptionGroup {
   key: string;
   courseCode: string;
@@ -208,8 +243,13 @@ function buildCourseOptionGroups(courses: ParsedCourse[], batchPreference: "Morn
     });
   });
 
-  // Sort groups: constrained embedded subjects first, then fewer options first
-  optionGroups.sort((a, b) => a.options.length - b.options.length);
+  // Sort groups: Priority 1 (Foundation/Skills) first, then Discipline Core, DLES, Electives; then fewer options first
+  optionGroups.sort((a, b) => {
+    const prioA = getCourseCategoryPriority(a.category, a.courseCode);
+    const prioB = getCourseCategoryPriority(b.category, b.courseCode);
+    if (prioA !== prioB) return prioA - prioB;
+    return a.options.length - b.options.length;
+  });
 
   return optionGroups;
 }
@@ -256,6 +296,7 @@ function generateCombinations(
     maxDurationMs: 4000,
     bestSelectedGroups: 0,
     seen: new Set<string>(),
+    courseSetCounts: new Map<string, number>(),
   };
 
   function backtrack(
@@ -288,10 +329,13 @@ function generateCombinations(
         const retained = allTimetables.filter((t) => t.courses.length >= tracker.bestSelectedGroups - 1);
         allTimetables.length = 0;
         tracker.seen.clear();
+        tracker.courseSetCounts.clear();
         retained.forEach((t) => {
           allTimetables.push(t);
           const sig = t.courses.map((c) => `${c.courseCode}|${c.slot}|${c.faculty}`).sort().join("||");
           tracker.seen.add(sig);
+          const setKey = t.courses.map((c) => c.courseCode).sort().join(",");
+          tracker.courseSetCounts.set(setKey, (tracker.courseSetCounts.get(setKey) || 0) + 1);
         });
       }
 
@@ -299,12 +343,19 @@ function generateCombinations(
         if (validateTimetableBatchPurity(currentTimetable, batchPreference)) {
           const courseSig = currentTimetable.map((c) => `${c.courseCode}|${c.slot}|${c.faculty}`).sort().join("||");
           if (!tracker.seen.has(courseSig)) {
-            tracker.seen.add(courseSig);
-            allTimetables.push({
-              courses: [...currentTimetable],
-              excludedGroupKeys: [...excludedGroupKeys],
-              generationMode: "zero-clash-pure",
-            });
+            const courseSetKey = currentTimetable.map((c) => c.courseCode).sort().join(",");
+            const existingCount = tracker.courseSetCounts.get(courseSetKey) || 0;
+            // Cap variations per course set (e.g. max 6 variations) to guarantee broad diversity across course combinations
+            const maxPerSet = Math.max(4, Math.floor((maxTimetables * 2) / 10));
+            if (existingCount < maxPerSet || allTimetables.length >= maxTimetables * 1.5) {
+              tracker.seen.add(courseSig);
+              tracker.courseSetCounts.set(courseSetKey, existingCount + 1);
+              allTimetables.push({
+                courses: [...currentTimetable],
+                excludedGroupKeys: [...excludedGroupKeys],
+                generationMode: "zero-clash-pure",
+              });
+            }
           }
         }
       }

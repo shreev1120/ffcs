@@ -77,20 +77,26 @@ export function parseCourseRow(row: Record<string, unknown>, index: number): Par
       "Course Name",
     ]);
 
-    // Handle combined "BCSE202L - Data Structures" or "BCSE202L Data Structures"
+    // Handle combined "BCSE202L - Data Structures", "ISTS202P-Quantitative Skills", or "BCSE202L Data Structures"
     if (courseCodeTitle && (!courseCode || !courseName)) {
-      const splitPos = courseCodeTitle.indexOf(" - ");
-      if (splitPos !== -1) {
-        courseCode = courseCodeTitle.substring(0, splitPos).trim();
-        courseName = courseCodeTitle.substring(splitPos + 3).trim();
+      const match = courseCodeTitle.trim().match(/^([A-Z]{2,5}\d{2,4}[A-Z]?)\s*[-–—:]?\s*(.+)$/i);
+      if (match) {
+        courseCode = match[1].toUpperCase();
+        courseName = match[2].replace(/^[-–—:]\s*/, "").trim();
       } else {
-        const firstSpace = courseCodeTitle.trim().indexOf(" ");
-        if (firstSpace !== -1 && /^[A-Z]{3,4}[0-9]/i.test(courseCodeTitle.trim())) {
-          courseCode = courseCodeTitle.trim().substring(0, firstSpace).trim();
-          courseName = courseCodeTitle.trim().substring(firstSpace + 1).trim();
+        const splitPos = courseCodeTitle.indexOf(" - ");
+        if (splitPos !== -1) {
+          courseCode = courseCodeTitle.substring(0, splitPos).trim();
+          courseName = courseCodeTitle.substring(splitPos + 3).trim();
         } else {
-          courseCode = courseCodeTitle;
-          courseName = courseCodeTitle;
+          const firstSpace = courseCodeTitle.trim().indexOf(" ");
+          if (firstSpace !== -1 && /^[A-Z]{3,4}[0-9]/i.test(courseCodeTitle.trim())) {
+            courseCode = courseCodeTitle.trim().substring(0, firstSpace).trim();
+            courseName = courseCodeTitle.trim().substring(firstSpace + 1).trim();
+          } else {
+            courseCode = courseCodeTitle.trim();
+            courseName = courseCodeTitle.trim();
+          }
         }
       }
     }

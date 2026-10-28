@@ -136,6 +136,41 @@ function generateTimetables(courses, preferences = {}) {
  * @param {object} preferences
  * @returns {array} Array of { courses, excludedGroupKeys, generationMode }
  */
+function getCourseCategoryPriority(category, courseCode) {
+    const cat = (category || '').toLowerCase();
+    const code = (courseCode || '').toUpperCase();
+
+    // Priority 1: Foundation Core & Mandatory Skills (ISTS Quantitative Skills, Soft Skills, HUM, ENG, MAT, CHY, PHY)
+    if (
+        cat.includes('foundation') ||
+        cat.includes('skill') ||
+        code.startsWith('ISTS') ||
+        code.startsWith('HUM') ||
+        code.startsWith('ENG')
+    ) {
+        return 1;
+    }
+
+    // Priority 2: Discipline Core (Major departmental core requirements)
+    if (
+        cat.includes('discipline core') ||
+        cat.includes('programme core') ||
+        cat.includes('program core') ||
+        (cat.includes('discipline') && !cat.includes('elective')) ||
+        cat === 'core'
+    ) {
+        return 2;
+    }
+
+    // Priority 3: Discipline-Linked Engineering Science (DLES)
+    if (cat.includes('dles') || cat.includes('linked') || cat.includes('engineering science')) {
+        return 3;
+    }
+
+    // Priority 4: Discipline Electives, Open Electives
+    return 4;
+}
+
 function generateCombinations(courses, preferences = {}) {
     const {
         batchPreference = 'Morning',
@@ -177,9 +212,15 @@ function generateCombinations(courses, preferences = {}) {
         return [];
     }
 
-    // Most Constrained Variable (MRV) heuristic: prioritize groups with fewest options first.
-    // This dramatically prunes dead branches early in the backtracking search.
-    optionGroups.sort((a, b) => a.options.length - b.options.length);
+    // Sort groups: Priority 1 (Foundation/Skills) first, then Discipline Core, DLES, Electives; then fewer options first
+    optionGroups.sort((a, b) => {
+        const firstA = (a.options && a.options[0]) || {};
+        const firstB = (b.options && b.options[0]) || {};
+        const prioA = getCourseCategoryPriority(firstA.category, a.key);
+        const prioB = getCourseCategoryPriority(firstB.category, b.key);
+        if (prioA !== prioB) return prioA - prioB;
+        return a.options.length - b.options.length;
+    });
 
     // Branch & Bound precomputations for credit limits:
     const groupMaxCredits = optionGroups.map((g) =>

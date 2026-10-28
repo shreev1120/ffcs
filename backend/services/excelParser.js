@@ -88,18 +88,25 @@ function parseCourseRow(row, index) {
 
         // If code and name aren't separate, try to parse from combined field
         if (courseCodeTitle && (!courseCode || !courseName)) {
-            const splitPos = courseCodeTitle.indexOf(' - ');
-            if (splitPos !== -1) {
-                courseCode = courseCodeTitle.substring(0, splitPos).trim();
-                courseName = courseCodeTitle.substring(splitPos + 3).trim();
+            const trimmed = courseCodeTitle.trim();
+            const match = trimmed.match(/^([A-Z]{2,5}\d{2,4}[A-Z]?)\s*[-–—:]?\s*(.+)$/i);
+            if (match) {
+                courseCode = match[1].trim().toUpperCase();
+                courseName = match[2].trim();
             } else {
-                const firstSpace = courseCodeTitle.trim().indexOf(' ');
-                if (firstSpace !== -1 && /^[A-Z]{3,4}[0-9]/i.test(courseCodeTitle.trim())) {
-                    courseCode = courseCodeTitle.trim().substring(0, firstSpace).trim();
-                    courseName = courseCodeTitle.trim().substring(firstSpace + 1).trim();
+                const splitPos = trimmed.indexOf(' - ');
+                if (splitPos !== -1) {
+                    courseCode = trimmed.substring(0, splitPos).trim().toUpperCase();
+                    courseName = trimmed.substring(splitPos + 3).trim();
                 } else {
-                    courseCode = courseCodeTitle;
-                    courseName = courseCodeTitle;
+                    const firstSpace = trimmed.indexOf(' ');
+                    if (firstSpace !== -1 && /^[A-Z]{3,4}[0-9]/i.test(trimmed)) {
+                        courseCode = trimmed.substring(0, firstSpace).trim().toUpperCase();
+                        courseName = trimmed.substring(firstSpace + 1).trim();
+                    } else {
+                        courseCode = trimmed;
+                        courseName = trimmed;
+                    }
                 }
             }
         }
