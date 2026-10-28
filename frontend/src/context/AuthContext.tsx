@@ -39,6 +39,53 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Local storage keys for 100% serverless / GitHub Pages account management
+const STORAGE_REGISTERED_ACCOUNTS = "vtop_ffcs_registered_accounts";
+const STORAGE_CURRENT_USER = "vtop_ffcs_current_user";
+const STORAGE_GUEST_USER = "vtop_ffcs_guest_user";
+
+async function hashClientPassword(password: string): Promise<string> {
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + "_vit_ffcs_client_salt_2026");
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    let hash = 0;
+    for (let i = 0; i < password.length; i++) {
+      hash = (hash << 5) - hash + password.charCodeAt(i);
+      hash |= 0;
+    }
+    return `fallback_${hash}`;
+  }
+}
+
+function getLocalAccounts(): Record<string, { email: string; passwordHash: string; user: AuthUser }> {
+  try {
+    const raw = localStorage.getItem(STORAGE_REGISTERED_ACCOUNTS);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalAccounts(accounts: Record<string, { email: string; passwordHash: string; user: AuthUser }>) {
+  try {
+    localStorage.setItem(STORAGE_REGISTERED_ACCOUNTS, JSON.stringify(accounts));
+  } catch {}
+}
+
+function saveCurrentUser(user: AuthUser | null) {
+  try {
+    if (user) {
+      localStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_CURRENT_USER);
+    }
+  } catch {}
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,8 +94,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const guestUser: AuthUser = {
       id: "guest-vit-student",
       vitEmail: "guest@vitstudent.ac.in",
-      name: "Guest Student",
-      registrationNumber: "Instant Access",
+      name: name || "Guest Student",
+      registrationNumber: regNo || "Instant Access",
       isGuest: true,
       preferences: {
         batchPreference: "Morning",
@@ -57,28 +104,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       },
     };
     try {
-      localStorage.setItem("vtop_ffcs_guest_user", JSON.stringify(guestUser));
-    } catch {
-      // LocalStorage non-blocking
-    }
+      localStorage.setItem(STORAGE_GUEST_USER, JSON.stringify(guestUser));
+    } catch {}
     setUser(guestUser);
   }, []);
 
   const refreshUser = useCallback(async () => {
     try {
       const data = await apiRequest<{ user: AuthUser }>("/me");
-      setUser(data.user);
+      if (data?.user) {
+        setUser(data.user);
+        saveCurrentUser(data.user);
+        return;
+      }
     } catch {
-      // Check for saved local guest student session
+      // Offline / Static host fallback
       try {
-        const savedGuest = localStorage.getItem("vtop_ffcs_guest_user");
+        const savedCurrent = localStorage.getItem(STORAGE_CURRENT_USER);
+        if (savedCurrent) {
+          setUser(JSON.parse(savedCurrent));
+          return;
+        }
+        const savedGuest = localStorage.getItem(STORAGE_GUEST_USER);
         if (savedGuest) {
           setUser(JSON.parse(savedGuest));
           return;
         }
-      } catch {
-        // Local storage parse fallback
-      }
+      } catch {}
       setUser(null);
     } finally {
       setLoading(false);
@@ -90,11 +142,70 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [refreshUser]);
 
   const login = useCallback(async (vitEmail: string, password: string) => {
-    const data = await apiRequest<{ user: AuthUser }>("/login", {
-      method: "POST",
-      body: { vitEmail, password },
-    });
-    setUser(data.user);
+    const cleanEmail = vitEmail.trim().toLowerCase();
+    if (!cleanEmail.endsWith("@vitstudent.ac.in")) {
+      throw new Error("Invalid email format. Use your VIT student email (@vitstudent.ac.in).");
+    }
+    if (!password) {
+      throw new Error("Password is required.");
+    }
+
+    // 1. Try backend API first if available
+    try {
+      const data = await apiRequest<{ user: AuthUser }>("/login", {
+        method: "POST",
+        body: { vitEmail: cleanEmail, password },
+      });
+      if (data?.user) {
+        setUser(data.user);
+        saveCurrentUser(data.user);
+        return;
+      }
+    } catch (apiErr) {
+      const msg = apiErr instanceof Error ? apiErr.message : "";
+      // If server explicitly returned wrong password on a real backend, propagate it
+      if (msg.includes("Invalid credentials") && !window.location.hostname.endsWith("github.io")) {
+        throw apiErr;
+      }
+    }
+
+    // 2. Client-side account lookup
+    const accounts = getLocalAccounts();
+    const pwdHash = await hashClientPassword(password);
+    const existing = accounts[cleanEmail];
+
+    if (existing) {
+      if (existing.passwordHash !== pwdHash) {
+        throw new Error("Invalid credentials. Check your email or password.");
+      }
+      setUser(existing.user);
+      saveCurrentUser(existing.user);
+      return;
+    }
+
+    // 3. Initialize account automatically if registering or logging in for the first time
+    const initialUser: AuthUser = {
+      id: `student-${Date.now()}`,
+      vitEmail: cleanEmail,
+      name: cleanEmail.split("@")[0].replace(/\./g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      registrationNumber: "",
+      preferences: {
+        batchPreference: "Morning",
+        rankingCriteria: "balanced",
+        maxTimetables: 50,
+      },
+      isGuest: false,
+    };
+
+    accounts[cleanEmail] = {
+      email: cleanEmail,
+      passwordHash: pwdHash,
+      user: initialUser,
+    };
+
+    saveLocalAccounts(accounts);
+    saveCurrentUser(initialUser);
+    setUser(initialUser);
   }, []);
 
   const signup = useCallback(
@@ -105,13 +216,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       name?: string,
       registrationNumber?: string
     ) => {
-      const data = await apiRequest<{ message: string; user?: AuthUser }>("/signup", {
-        method: "POST",
-        body: { vitEmail, password, confirmPassword, name, registrationNumber },
-      });
-      if (data?.user) {
-        setUser(data.user);
+      const cleanEmail = vitEmail.trim().toLowerCase();
+      if (!cleanEmail.endsWith("@vitstudent.ac.in")) {
+        throw new Error("VIT student email must end with @vitstudent.ac.in");
       }
+      if (password.length < 6) {
+        throw new Error("Password must be at least 6 characters long.");
+      }
+      if (confirmPassword && password !== confirmPassword) {
+        throw new Error("Password and confirm password do not match.");
+      }
+
+      // 1. Try backend API first if available
+      try {
+        const data = await apiRequest<{ message: string; user?: AuthUser }>("/signup", {
+          method: "POST",
+          body: { vitEmail: cleanEmail, password, confirmPassword, name, registrationNumber },
+        });
+        if (data?.user) {
+          setUser(data.user);
+          saveCurrentUser(data.user);
+          return;
+        }
+      } catch (apiErr) {
+        const msg = apiErr instanceof Error ? apiErr.message : "";
+        if (msg.includes("already exists") && !window.location.hostname.endsWith("github.io")) {
+          throw apiErr;
+        }
+      }
+
+      // 2. Client-side account persistence
+      const accounts = getLocalAccounts();
+      const pwdHash = await hashClientPassword(password);
+
+      const registeredUser: AuthUser = {
+        id: `student-${Date.now()}`,
+        vitEmail: cleanEmail,
+        name: (name || cleanEmail.split("@")[0]).trim(),
+        registrationNumber: (registrationNumber || "").trim().toUpperCase(),
+        preferences: {
+          batchPreference: "Morning",
+          rankingCriteria: "balanced",
+          maxTimetables: 50,
+        },
+        isGuest: false,
+      };
+
+      accounts[cleanEmail] = {
+        email: cleanEmail,
+        passwordHash: pwdHash,
+        user: registeredUser,
+      };
+
+      saveLocalAccounts(accounts);
+      saveCurrentUser(registeredUser);
+      setUser(registeredUser);
     },
     []
   );
@@ -120,38 +279,111 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await apiRequest("/logout", { method: "POST" });
     } catch {
-      // Ignore server-side logout failures and clear local auth state anyway.
+      // Non-blocking
     } finally {
+      saveCurrentUser(null);
       try {
-        localStorage.removeItem("vtop_ffcs_guest_user");
-      } catch {
-        // Non-blocking
-      }
+        localStorage.removeItem(STORAGE_GUEST_USER);
+      } catch {}
       setUser(null);
     }
   }, []);
 
   const updateProfile = useCallback(async (payload: Partial<AuthUser>) => {
-    const data = await apiRequest<{ user: AuthUser }>("/profile", {
-      method: "PUT",
-      body: payload,
+    try {
+      const data = await apiRequest<{ user: AuthUser }>("/profile", {
+        method: "PUT",
+        body: payload,
+      });
+      if (data?.user) {
+        setUser(data.user);
+        saveCurrentUser(data.user);
+        return;
+      }
+    } catch {}
+
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated: AuthUser = {
+        ...prev,
+        name: payload.name !== undefined ? payload.name : prev.name,
+        registrationNumber:
+          payload.registrationNumber !== undefined ? payload.registrationNumber : prev.registrationNumber,
+        whatsappNumber: payload.whatsappNumber !== undefined ? payload.whatsappNumber : prev.whatsappNumber,
+      };
+      saveCurrentUser(updated);
+      const accounts = getLocalAccounts();
+      if (accounts[updated.vitEmail]) {
+        accounts[updated.vitEmail].user = updated;
+        saveLocalAccounts(accounts);
+      }
+      return updated;
     });
-    setUser(data.user);
   }, []);
 
   const updatePreferences = useCallback(async (payload: Partial<UserPreferences>) => {
-    const data = await apiRequest<{ user: AuthUser }>("/preferences", {
-      method: "PUT",
-      body: payload,
+    try {
+      const data = await apiRequest<{ user: AuthUser }>("/preferences", {
+        method: "PUT",
+        body: payload,
+      });
+      if (data?.user) {
+        setUser(data.user);
+        saveCurrentUser(data.user);
+        return;
+      }
+    } catch {}
+
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated: AuthUser = {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          ...payload,
+        },
+      };
+      saveCurrentUser(updated);
+      const accounts = getLocalAccounts();
+      if (accounts[updated.vitEmail]) {
+        accounts[updated.vitEmail].user = updated;
+        saveLocalAccounts(accounts);
+      }
+      return updated;
     });
-    setUser(data.user);
   }, []);
 
   const updatePassword = useCallback(async (currentPassword: string, newPassword: string) => {
-    await apiRequest("/password", {
-      method: "PUT",
-      body: { currentPassword, newPassword },
-    });
+    if (newPassword.length < 6) {
+      throw new Error("New password must be at least 6 characters long.");
+    }
+    try {
+      await apiRequest("/password", {
+        method: "PUT",
+        body: { currentPassword, newPassword },
+      });
+      saveCurrentUser(null);
+      setUser(null);
+      return;
+    } catch {}
+
+    const accounts = getLocalAccounts();
+    const currentUserStr = localStorage.getItem(STORAGE_CURRENT_USER);
+    if (!currentUserStr) throw new Error("No active student session.");
+    const currentUser: AuthUser = JSON.parse(currentUserStr);
+
+    const currHash = await hashClientPassword(currentPassword);
+    const account = accounts[currentUser.vitEmail];
+    if (account && account.passwordHash !== currHash) {
+      throw new Error("Current password is incorrect.");
+    }
+
+    const newHash = await hashClientPassword(newPassword);
+    if (account) {
+      account.passwordHash = newHash;
+      saveLocalAccounts(accounts);
+    }
+    saveCurrentUser(null);
     setUser(null);
   }, []);
 
@@ -169,7 +401,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       updatePreferences,
       updatePassword,
     }),
-    [loading, login, logout, loginAsGuest, refreshUser, signup, updatePassword, updatePreferences, updateProfile, user],
+    [loading, login, logout, loginAsGuest, refreshUser, signup, updatePassword, updatePreferences, updateProfile, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
