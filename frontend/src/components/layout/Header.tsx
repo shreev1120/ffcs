@@ -47,7 +47,7 @@ const Header = () => {
     <>
       {/* VTOP Institutional Top Navigation Bar */}
       <header className="vtop-header-gradient text-white sticky top-0 z-50 border-b border-[#1b4b8a] shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-4 py-2.5 flex items-center justify-between">
+        <div className="w-full px-4 lg:px-6 py-2.5 flex items-center justify-between">
           {/* VTOP Branding */}
           <div className="flex items-center gap-3">
             <AppLogo size="md" textVariant="white" linkTo="/dashboard" />

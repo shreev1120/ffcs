@@ -166,7 +166,7 @@ const Index = () => {
 
         <div className="p-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="max-w-2xl">
+            <div className="flex-1 max-w-3xl">
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
                 Welcome back, {user?.name || user?.vitEmail?.split("@")[0] || "Student"}
               </h1>
@@ -255,7 +255,7 @@ const Index = () => {
           <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
             Interactive Visual Slot Planner (Curriculum-Fed)
           </h2>
-          <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-300 max-w-3xl leading-relaxed">
             Click on any slot in the official VIT timetable grid to assign subjects, faculty, slots, and credits. Automatically pre-loaded with all <span className="font-bold text-emerald-700 dark:text-emerald-400">100 courses</span> from your curriculum (Foundation Core, Discipline-linked ES, Discipline Core, and Discipline Electives) with real-time clash checking and credit calculation.
           </p>
         </div>
@@ -287,7 +287,7 @@ const Index = () => {
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
               Required Excel Sheet Columns &amp; Sample Template
             </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-3xl leading-relaxed">
               Ensure your VTOP export or custom spreadsheet contains the columns shown below. Our backtracking engine uses these headers to calculate conflict-free slot permutations.
             </p>
           </div>
@@ -318,7 +318,7 @@ const Index = () => {
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2.5">
             Column Header Specifications:
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
             {SAMPLE_EXCEL_COLUMNS.map((col) => (
               <div
                 key={col.name}
@@ -356,28 +356,28 @@ const Index = () => {
             <table className="w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 text-center w-12">
+                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 text-center w-14 shrink-0">
                     Sl.No
                   </th>
-                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700">
+                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 w-32 shrink-0">
                     Course Code <span className="text-rose-500 font-extrabold">*</span>
                   </th>
-                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700">
+                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 min-w-[220px]">
                     Course Title <span className="text-rose-500 font-extrabold">*</span>
                   </th>
-                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700">
+                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 w-32 shrink-0">
                     Slot <span className="text-rose-500 font-extrabold">*</span>
                   </th>
-                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700">
+                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 w-48">
                     Faculty
                   </th>
-                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700">
+                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 w-28">
                     Venue
                   </th>
-                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 text-center w-16">
+                  <th className="py-2.5 px-3 font-bold border-r border-slate-200 dark:border-slate-700 text-center w-20 shrink-0">
                     Credits
                   </th>
-                  <th className="py-2.5 px-3 font-bold">Course Type</th>
+                  <th className="py-2.5 px-3 font-bold w-32 shrink-0">Course Type</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-150 dark:divide-slate-800">

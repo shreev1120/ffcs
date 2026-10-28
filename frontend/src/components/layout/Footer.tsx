@@ -4,8 +4,8 @@ import AppLogo from "@/components/common/AppLogo";
 
 const Footer = () => {
   return (
-    <footer className="mt-auto border-t border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300">
-      <div className="max-w-[1400px] mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
+    <footer className="mt-auto border-t border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 lg:ml-[260px]">
+      <div className="w-full px-6 lg:px-8 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
         {/* Brand & Genuine Academic Details */}
         <div className="space-y-2.5">
           <AppLogo size="sm" textVariant="dark" linkTo="/" showBadge={false} />
